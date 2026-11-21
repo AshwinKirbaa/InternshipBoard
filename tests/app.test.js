@@ -84,12 +84,28 @@ test('uses a verified original URL for live records and internal details for sam
   assert.equal(getRecordUrl({ id: 'bad', isLive: true, sourceUrl: 'javascript:alert(1)' }), 'internship.html?id=bad');
 });
 
-test('loads paginated persistent API records and falls back to supplied samples on failure', async () => {
+test('loads source-attributed live records before consulting the persistent database', async () => {
+  const liveRecord = { ...records[0], id: 'lever-example-1', company: 'Example', source: 'Lever', sourceUrl: 'https://jobs.lever.co/example/1', isLive: true };
+  const calls = [];
+  const loaded = await loadInternships(async (url) => {
+    calls.push(url);
+    return { ok: true, json: async () => ({ data: [liveRecord], meta: { live: true, source: 'Official employer job boards', count: 1 } }) };
+  });
+  assert.deepEqual(calls, ['/api/live-internships']);
+  assert.equal(loaded.records[0].id, 'lever-example-1');
+  assert.equal(loaded.records[0].isLive, true);
+  assert.equal(loaded.meta.live, true);
+  assert.equal(loaded.meta.source, 'Official employer job boards');
+});
+
+test('uses paginated persistent records when live providers fail and supplied samples only when both fail', async () => {
   const apiPayload = {
     data: [{ ...records[0], id: 'INT-201' }],
     pagination: { page: 1, limit: 100, total: 1, totalPages: 1, hasNextPage: false, hasPreviousPage: false },
   };
-  const loaded = await loadInternships(async () => ({ ok: true, json: async () => apiPayload }));
+  const loaded = await loadInternships(async (url) => url === '/api/live-internships'
+    ? { ok: false, status: 503 }
+    : { ok: true, json: async () => apiPayload });
   assert.equal(loaded.records[0].id, 'INT-201');
   assert.equal(loaded.meta.live, false);
   assert.equal(loaded.meta.persistent, true);
@@ -125,10 +141,9 @@ test('labels live, database, and fallback records according to their real source
 });
 
 test('accepts an authoritative empty database without substituting seed records', async () => {
-  const loaded = await loadInternships(async () => ({
-    ok: true,
-    json: async () => ({ data: [], pagination: { page: 1, limit: 100, total: 0, totalPages: 0, hasNextPage: false, hasPreviousPage: false } }),
-  }));
+  const loaded = await loadInternships(async (url) => url === '/api/live-internships'
+    ? { ok: false, status: 503 }
+    : { ok: true, json: async () => ({ data: [], pagination: { page: 1, limit: 100, total: 0, totalPages: 0, hasNextPage: false, hasPreviousPage: false } }) });
   assert.deepEqual(loaded.records, []);
   assert.equal(loaded.meta.persistent, true);
   assert.equal(loaded.meta.count, 0);
@@ -139,10 +154,11 @@ test('loads every page so frontend search and totals include records after 100',
   const firstPage = Array.from({ length: 100 }, (_, index) => ({ ...records[0], id: `INT-${String(index + 1).padStart(3, '0')}` }));
   const loaded = await loadInternships(async (url) => {
     calls.push(url);
+    if (url === '/api/live-internships') return { ok: false, status: 503 };
     return url.includes('page=2')
       ? { ok: true, json: async () => ({ data: [{ ...records[0], id: 'INT-101' }], pagination: { page: 2, limit: 100, total: 101, totalPages: 2, hasNextPage: false, hasPreviousPage: true } }) }
       : { ok: true, json: async () => ({ data: firstPage, pagination: { page: 1, limit: 100, total: 101, totalPages: 2, hasNextPage: true, hasPreviousPage: false } }) };
   });
   assert.equal(loaded.records.length, 101);
-  assert.deepEqual(calls, ['/api/internships?limit=100&page=1', '/api/internships?limit=100&page=2']);
+  assert.deepEqual(calls, ['/api/live-internships', '/api/internships?limit=100&page=1', '/api/internships?limit=100&page=2']);
 });

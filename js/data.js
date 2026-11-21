@@ -8,34 +8,41 @@ export const internships = [
   { id: 'INT-105', title: 'Security Operations Intern', domain: 'Cyber Security', mode: 'Remote', location: 'India', skills: ['Linux', 'Logs', 'Networking'], openings: 1 },
 ];
 
+async function loadPersistentInternships(fetchImpl) {
+  const records = [];
+  let page = 1;
+  let pagination;
+  do {
+    const response = await fetchImpl(`/api/internships?limit=100&page=${page}`, { headers: { accept: 'application/json' } });
+    if (!response.ok) throw new Error(`Internship API returned HTTP ${response.status}`);
+    const payload = await response.json();
+    if (!payload || !Array.isArray(payload.data)) throw new Error('Internship API returned an invalid collection');
+    records.push(...payload.data);
+    pagination = payload.pagination;
+    page += 1;
+  } while (pagination?.hasNextPage);
+  return {
+    records: records.map((record) => ({ ...record, isSample: false })),
+    meta: { live: false, persistent: true, source: 'Persistent internship database', count: pagination?.total ?? records.length },
+  };
+}
+
 export async function loadInternships(fetchImpl = fetch) {
   try {
-    const records = [];
-    let page = 1;
-    let pagination;
-    do {
-      const response = await fetchImpl(`/api/internships?limit=100&page=${page}`, { headers: { accept: 'application/json' } });
-      if (!response.ok) throw new Error(`Internship API returned HTTP ${response.status}`);
-      const payload = await response.json();
-      if (!payload || !Array.isArray(payload.data)) throw new Error('Internship API returned an invalid collection');
-      records.push(...payload.data);
-      pagination = payload.pagination;
-      page += 1;
-    } while (pagination?.hasNextPage);
-    return {
-      records: records.map((record) => ({ ...record, isSample: false })),
-      meta: { live: false, persistent: true, source: 'Persistent internship database', count: pagination?.total ?? records.length },
-    };
+    const response = await fetchImpl('/api/live-internships', { headers: { accept: 'application/json' } });
+    if (!response.ok) throw new Error(`Live internship API returned HTTP ${response.status}`);
+    const payload = await response.json();
+    if (!payload || !Array.isArray(payload.data) || !payload.data.length) throw new Error('Live internship API returned no internships');
+    return { records: payload.data, meta: { ...payload.meta, live: true, count: payload.meta?.count ?? payload.data.length } };
   } catch {
-    return {
-      records: internships.map((record) => ({ ...record, isSample: true })),
-      meta: {
-        live: false,
-        fallback: true,
-        source: 'EdVyro supplied sample records',
-        count: internships.length,
-      },
-    };
+    try {
+      return await loadPersistentInternships(fetchImpl);
+    } catch {
+      return {
+        records: internships.map((record) => ({ ...record, isSample: true })),
+        meta: { live: false, fallback: true, source: 'EdVyro supplied sample records', count: internships.length },
+      };
+    }
   }
 }
 
