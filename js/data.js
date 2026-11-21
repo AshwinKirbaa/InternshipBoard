@@ -8,7 +8,22 @@ export const internships = [
   { id: 'INT-105', title: 'Security Operations Intern', domain: 'Cyber Security', mode: 'Remote', location: 'India', skills: ['Linux', 'Logs', 'Networking'], openings: 1 },
 ];
 
-export async function loadInternships() {
-  await new Promise((resolve) => setTimeout(resolve, 180));
-  return internships;
+export async function loadInternships(fetchImpl = fetch) {
+  try {
+    const response = await fetchImpl('/api/internships', { headers: { accept: 'application/json' } });
+    if (!response.ok) throw new Error(`Live API returned HTTP ${response.status}`);
+    const payload = await response.json();
+    if (!payload || !Array.isArray(payload.internships) || !payload.internships.length) throw new Error('Live API returned no internships');
+    return { records: payload.internships, meta: payload.meta || { live: true, source: 'Official job boards' } };
+  } catch {
+    return {
+      records: internships,
+      meta: {
+        live: false,
+        fallback: true,
+        source: 'EdVyro supplied sample records',
+        count: internships.length,
+      },
+    };
+  }
 }

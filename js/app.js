@@ -1,5 +1,5 @@
 const REQUIRED_TEXT_FIELDS = ['title', 'domain'];
-const SEARCH_FIELDS = ['title', 'location', 'domain', 'mode'];
+const SEARCH_FIELDS = ['title', 'company', 'location', 'domain', 'mode', 'description'];
 
 function cleanText(value) {
   return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '';
@@ -19,6 +19,10 @@ export function getDetailsUrl(recordId) {
   return `internship.html?id=${encodeURIComponent(cleanText(recordId))}`;
 }
 
+export function getRecordUrl(record) {
+  return record?.isLive && isSafeExternalUrl(record.sourceUrl) ? record.sourceUrl : getDetailsUrl(record?.id || '');
+}
+
 export function normalizeInternship(record) {
   if (!record || typeof record !== 'object') return null;
 
@@ -28,11 +32,18 @@ export function normalizeInternship(record) {
   const normalized = {
     id: cleanText(record.id) || cleanText(record.title).toLowerCase().replace(/[^a-z0-9]+/g, '-'),
     title: cleanText(record.title),
+    company: cleanText(record.company),
     location: cleanText(record.location) || 'Location not specified',
     domain: cleanText(record.domain) || 'Other',
     mode: cleanText(record.mode) || 'Work mode not specified',
     skills: Array.isArray(record.skills) ? record.skills.map(cleanText).filter(Boolean) : [],
     openings: Number.isInteger(record.openings) && record.openings >= 0 ? record.openings : 0,
+    salary: cleanText(record.salary),
+    description: cleanText(record.description),
+    publishedAt: cleanText(record.publishedAt),
+    source: cleanText(record.source),
+    sourceUrl: isSafeExternalUrl(record.sourceUrl) ? record.sourceUrl : '',
+    isLive: record.isLive === true,
   };
 
   return normalized;
@@ -89,11 +100,11 @@ export function createInternshipCard(record) {
 
   const top = createElement('div', 'card-top');
   const identity = createElement('div', 'card-identity');
-  const recordMark = createElement('span', 'company-mark', record.id.replace('INT-', ''));
+  const recordMark = createElement('span', 'company-mark', record.company ? record.company.slice(0, 1).toUpperCase() : record.id.replace('INT-', ''));
   const headingGroup = createElement('div');
   const title = createElement('h3', '', record.title);
   title.id = `title-${record.id}`;
-  headingGroup.append(title, createElement('p', 'record-id', record.id));
+  headingGroup.append(title, createElement('p', 'record-id', record.company || record.id));
   identity.append(recordMark, headingGroup);
   top.append(identity, createElement('span', 'domain-badge', record.domain));
 
@@ -108,15 +119,23 @@ export function createInternshipCard(record) {
   const skills = createElement('ul', 'skill-list');
   for (const skill of record.skills) skills.append(createElement('li', '', skill));
   skillsBlock.append(skills);
+  const description = record.description ? createElement('p', 'card-description', record.description) : null;
   const footer = createElement('div', 'card-footer');
   const openingText = `${record.openings} ${record.openings === 1 ? 'opening' : 'openings'}`;
   const openings = createElement('div', 'openings-count');
   openings.append(createIcon('M12 3v18M3 12h18'), createElement('strong', '', openingText));
-  footer.append(openings, createElement('span', 'source-label', 'Supplied sample record'));
-  card.append(top, meta, skillsBlock, footer);
+  const sourceText = record.isLive ? `Live · ${record.source || 'Official source'}` : 'Supplied sample record';
+  footer.append(openings, createElement('span', `source-label${record.isLive ? ' is-live' : ''}`, sourceText));
+  card.append(top, meta, skillsBlock);
+  if (description) card.append(description);
+  card.append(footer);
   const link = createElement('a', 'internship-card-link');
-  link.href = getDetailsUrl(record.id);
-  link.setAttribute('aria-label', `View details for ${record.title}`);
+  link.href = getRecordUrl(record);
+  link.setAttribute('aria-label', record.isLive ? `View original opening for ${record.title} at ${record.company} (opens in a new tab)` : `View details for ${record.title}`);
+  if (record.isLive && record.sourceUrl) {
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+  }
   link.append(card);
   return link;
 }
@@ -215,13 +234,17 @@ async function initializeData() {
   try {
     const { loadInternships } = await import('./data.js');
     const loaded = await loadInternships();
-    sourceRecords = loaded.map(normalizeInternship).filter(Boolean);
+    sourceRecords = loaded.records.map(normalizeInternship).filter(Boolean);
     if (!sourceRecords.length) throw new Error('No valid internships were returned');
     const domains = new Set(sourceRecords.map(({ domain }) => domain));
     document.querySelector('#opportunity-total').textContent = String(sourceRecords.length);
     document.querySelector('#domain-total').textContent = String(domains.size);
     document.querySelector('#remote-total').textContent = String(sourceRecords.filter(({ mode }) => mode === 'Remote').length);
     document.querySelector('#openings-total').textContent = String(sourceRecords.reduce((total, { openings }) => total + openings, 0));
+    document.querySelector('#data-source-label').textContent = loaded.meta.live ? 'Live official openings' : 'EdVyro sample fallback';
+    document.querySelector('#summary-disclosure').textContent = loaded.meta.live
+      ? `Current openings aggregated from ${loaded.meta.boardsAvailable || 'available'} official employer job boards. Always verify requirements on the original posting.`
+      : 'Live listings are temporarily unavailable. Showing the five fictional EdVyro records instead.';
     populateSelect(document.querySelector('#domain-filter'), [...domains].sort());
     populateSelect(document.querySelector('#mode-filter'), [...new Set(sourceRecords.map(({ mode }) => mode))].sort());
     populateSelect(document.querySelector('#skill-filter'), [...new Set(sourceRecords.flatMap(({ skills }) => skills))].sort());

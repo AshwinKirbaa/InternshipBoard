@@ -1,26 +1,29 @@
 # Internship Board
 
-Internship Board is a responsive, accessible internship discovery website built for Milestone 2. It uses EdVyro’s supplied fictional internship seed so students can search roles, compare skills and openings, and filter the records on any screen size.
+Internship Board is a responsive, accessible internship discovery website built for Milestone 2. It combines current internship openings from official employer job boards with EdVyro's five supplied records as a resilient fallback.
 
 ## Features
 
 - Real-time search across title, location, domain, work mode, and skills
 - Domain, work-mode, and skill filters that combine with the search query
-- All five records from the official EdVyro internship seed
-- Selectable cards with an internal, shareable details page for each supplied record
+- Current openings from seven official employer Greenhouse boards
+- External live cards link directly to the employer's original posting
+- All five EdVyro seed records remain available when the live API is unavailable
+- Selectable fallback cards have an internal, shareable details page
 - Responsive one-, two-, and three-column layouts
 - Loading, empty, and recoverable error states
-- Honest handling of source data with no invented application links
+- Honest source labels and no invented application links
 - Responsive keyboard-accessible navigation
 - Graceful handling of missing optional fields and malformed records
 
-> **Data note:** These are fictional records supplied by EdVyro for this milestone. The source does not provide company names or application links, so the interface does not invent them.
+> **Data note:** Live listings come from public employer Greenhouse job-board APIs and can change at any time. If every provider is unavailable, the interface clearly switches to EdVyro's fictional five-record sample instead of displaying stale or invented openings.
 
 ## Technology stack
 
 - Semantic HTML5
 - Mobile-first CSS3
 - Vanilla JavaScript ES modules
+- Dependency-free Node.js HTTP API
 - Node.js built-in test runner
 - Headless Google Chrome for browser QA and screenshots
 
@@ -36,6 +39,9 @@ No frontend framework, CSS framework, runtime dependency, or build step is used.
 ├── js/
 │   ├── app.js
 │   └── data.js
+├── backend/
+│   ├── provider.js
+│   └── server.js
 ├── tests/
 │   ├── app.test.js
 │   ├── contracts.test.js
@@ -58,7 +64,8 @@ You need Node.js 22 or newer to run both the unit and browser QA scripts. There 
    npx serve .
    ```
 
-3. Open the local address printed in the terminal (usually `http://localhost:3000`).
+3. In a second terminal, start the live API with `npm run start:api`.
+4. Open the local address printed by the static server (usually `http://localhost:3000`).
 
 You can also use any static-file server, such as VS Code Live Server. Opening `index.html` directly may work in some browsers, but a local server is recommended because the application uses ES modules.
 
@@ -66,7 +73,7 @@ You can also use any static-file server, such as VS Code Live Server. Opening `i
 
 Typing in the search field updates results immediately. Search is case-insensitive, trims extra whitespace, and matches title, location, domain, work mode, and skills. Domain, mode, and skill filters intersect with the current query. Use **Clear filters** in the toolbar or empty state to restore every listing.
 
-Selecting any internship card opens its dedicated details page. Because the supplied records contain no company or application URL, the details page clearly identifies the listing as fictional rather than inventing an external application destination.
+Selecting a live internship opens the original employer posting in a new tab. A supplied fallback record opens its dedicated internal details page, which identifies the listing as fictional rather than inventing an external application destination.
 
 ## Accessibility
 
@@ -103,7 +110,15 @@ The browser script verifies the EdVyro 360px portfolio width plus all five proje
 
 ## Deployment
 
-The project is a static site. Upload the repository root to GitHub Pages, Netlify, Render Static Sites, Vercel, or any web server. No environment variables or build command are required; use the repository root as the publish directory.
+The frontend is deployed as a static Vercel project. Requests under `/api/*` are rewritten to the Render web service. The included `render.yaml` defines the dependency-free Node API, its health check, runtime, and allowed browser origins.
+
+Render commands:
+
+- Build: `npm install --ignore-scripts`
+- Start: `npm run start:api`
+- Health check: `/health`
+
+Set `ALLOWED_ORIGINS` to the final Vercel production origin plus the local development origins before exposing the Render API directly to browsers.
 
 ## Screenshots
 

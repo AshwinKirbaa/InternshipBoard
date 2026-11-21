@@ -137,11 +137,13 @@ h1 { max-width: 10ch; margin-bottom: 1rem; font-size: clamp(2.65rem, 9vw, 5.5rem
 .skills-label { margin-bottom: .45rem; color: #63758a; font-size: .72rem; font-weight: 750; text-transform: uppercase; letter-spacing: .07em; }
 .skill-list { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0; padding: 0; list-style: none; }
 .skill-list li { padding: .3rem .55rem; color: var(--ink-soft); background: var(--sky); border-radius: 7px; font-size: .76rem; font-weight: 650; }
+.card-description { display: -webkit-box; margin: 0 0 1.25rem; overflow: hidden; color: var(--ink-soft); font-size: .84rem; line-height: 1.55; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
 .card-footer { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-top: auto; padding-top: 1rem; border-top: 1px solid #dfE7f1; }
 .openings-count { display: inline-flex; align-items: center; gap: .45rem; color: var(--green); }
 .openings-count svg { width: 1rem; }
 .openings-count strong { font-size: .88rem; }
 .source-label { color: #667a91; font-size: .72rem; text-align: right; }
+.source-label.is-live { color: var(--green); font-weight: 750; }
 .apply-button { flex: none; display: inline-flex; align-items: center; gap: .4rem; min-height: 2.6rem; padding: .55rem .8rem; color: var(--white); background: var(--ink); border-radius: 9px; font-size: .82rem; font-weight: 750; text-decoration: none; transition: background .2s, transform .2s var(--ease); }
 .apply-button:hover { background: var(--blue); transform: translateY(-1px); }
 .apply-button svg { width: 1rem; }

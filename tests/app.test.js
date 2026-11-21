@@ -3,10 +3,12 @@ import assert from 'node:assert/strict';
 
 import {
   filterInternships,
+  getRecordUrl,
   getDetailsUrl,
   isSafeExternalUrl,
   normalizeInternship,
 } from '../js/app.js';
+import { internships as fallbackInternships, loadInternships } from '../js/data.js';
 
 const records = [
   {
@@ -73,4 +75,22 @@ test('only accepts HTTP(S) application URLs', () => {
 test('builds an encoded internal details URL for a record', () => {
   assert.equal(getDetailsUrl('INT-101'), 'internship.html?id=INT-101');
   assert.equal(getDetailsUrl('INT 101/alpha'), 'internship.html?id=INT%20101%2Falpha');
+});
+
+test('uses a verified original URL for live records and internal details for samples', () => {
+  assert.equal(getRecordUrl({ id: 'live-1', isLive: true, sourceUrl: 'https://example.com/jobs/1' }), 'https://example.com/jobs/1');
+  assert.equal(getRecordUrl({ id: 'INT-101', isLive: false }), 'internship.html?id=INT-101');
+  assert.equal(getRecordUrl({ id: 'bad', isLive: true, sourceUrl: 'javascript:alert(1)' }), 'internship.html?id=bad');
+});
+
+test('loads live API records and falls back to supplied samples on failure', async () => {
+  const livePayload = { internships: [{ ...records[0], id: 'live-1', company: 'Live Co', sourceUrl: 'https://example.com/1', isLive: true }], meta: { live: true, source: 'Official boards' } };
+  const live = await loadInternships(async () => ({ ok: true, json: async () => livePayload }));
+  assert.equal(live.records[0].id, 'live-1');
+  assert.equal(live.meta.live, true);
+
+  const fallback = await loadInternships(async () => { throw new Error('offline'); });
+  assert.equal(fallback.records.length, fallbackInternships.length);
+  assert.equal(fallback.meta.live, false);
+  assert.equal(fallback.meta.fallback, true);
 });
