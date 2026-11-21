@@ -1,0 +1,12 @@
+{
+  "name": "internship-board",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "test:browser": "node tests/browser-qa.mjs",
+    "test:all": "npm test && npm run test:browser",
+    "serve": "npx --yes serve ."
+  }
+}

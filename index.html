@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Browse and filter sample internship opportunities across technology domains.">
+  <meta name="theme-color" content="#0b1f3a">
+  <title>Internship Board — Find your next internship</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#internships">Skip to internship results</a>
+  <header class="site-header">
+    <div class="shell header-inner">
+      <a class="brand" href="#top" aria-label="Internship Board home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false"><path d="M7 7V5.8A2.8 2.8 0 0 1 9.8 3h4.4A2.8 2.8 0 0 1 17 5.8V7m-12 4h14M6 7h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm4 4v2h4v-2"/></svg>
+        </span>
+        <span>Internship<span>Board</span></span>
+      </a>
+      <button class="menu-button" type="button" aria-expanded="false" aria-controls="primary-navigation">
+        <span class="visually-hidden">Toggle navigation</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+      <nav id="primary-navigation" class="primary-nav" aria-label="Primary navigation">
+        <a href="#internships">Browse internships</a>
+        <a href="#how-it-works">How it works</a>
+        <a class="nav-cta" href="#search-input">Start searching</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="shell hero-grid">
+        <div class="hero-copy">
+          <p class="sample-note"><span aria-hidden="true"></span> EdVyro supplied sample records</p>
+          <h1 id="hero-title">Find Your Next Internship</h1>
+          <p class="hero-subtitle">Explore the supplied internship dataset by role, location, domain, work mode, or skill—and quickly see where openings are available.</p>
+          <form id="search-form" class="search-form" role="search">
+            <label for="search-input">Search internships</label>
+            <div class="search-control">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>
+              <input id="search-input" name="search" type="search" autocomplete="off" placeholder="Role, location, domain, or skill">
+              <button type="submit">Search</button>
+            </div>
+          </form>
+          <p class="search-hint">Try “remote”, “SQL”, or “Bengaluru”</p>
+        </div>
+        <aside class="hero-summary" aria-label="Internship collection summary">
+          <div class="summary-top">
+            <span class="summary-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false"><path d="M5 12.5 9.2 17 19 7"/></svg>
+            </span>
+            <p><strong id="opportunity-total">5</strong> supplied opportunities</p>
+          </div>
+          <dl>
+            <div><dt>Domains</dt><dd id="domain-total">4</dd></div>
+            <div><dt>Remote options</dt><dd id="remote-total">3</dd></div>
+            <div><dt>Total openings</dt><dd id="openings-total">9</dd></div>
+          </dl>
+          <p class="summary-disclosure">Fictional records supplied for this milestone. No application links were included in the source data.</p>
+        </aside>
+      </div>
+    </section>
+
+    <section id="internships" class="results-section" aria-labelledby="results-title">
+      <div class="shell">
+        <div class="route-line" aria-hidden="true"><span></span></div>
+        <div class="results-toolbar">
+          <div>
+            <h2 id="results-title">Explore opportunities</h2>
+            <p id="results-status" role="status" aria-live="polite" aria-atomic="true">Loading internships…</p>
+          </div>
+          <div class="filter-actions" aria-label="Internship filters">
+            <div class="select-field">
+              <label for="domain-filter">Filter by domain</label>
+              <select id="domain-filter" name="domain">
+                <option value="all">All domains</option>
+              </select>
+            </div>
+            <div class="select-field">
+              <label for="mode-filter">Work mode</label>
+              <select id="mode-filter" name="mode">
+                <option value="all">All modes</option>
+              </select>
+            </div>
+            <div class="select-field">
+              <label for="skill-filter">Skill</label>
+              <select id="skill-filter" name="skill">
+                <option value="all">All skills</option>
+              </select>
+            </div>
+            <button id="clear-filters" class="text-button" type="button" disabled>Clear filters</button>
+          </div>
+        </div>
+
+        <div id="loading-state" class="state-panel loading-panel" aria-hidden="false">
+          <span class="loader" aria-hidden="true"></span>
+          <p>Gathering sample opportunities…</p>
+        </div>
+
+        <div id="results-grid" class="results-grid" aria-busy="true"></div>
+
+        <div id="empty-state" class="state-panel" hidden>
+          <div class="state-icon" aria-hidden="true">
+            <svg viewBox="0 0 48 48" focusable="false"><circle cx="20" cy="20" r="11"/><path d="m28 28 9 9M8 39h18"/></svg>
+          </div>
+          <h3>No internships match that search</h3>
+          <p>Try a broader keyword or clear your filters to see every opportunity.</p>
+          <button id="empty-clear-button" class="primary-button" type="button">Clear filters</button>
+        </div>
+
+        <div id="error-state" class="state-panel error-panel" role="alert" hidden>
+          <div class="state-icon" aria-hidden="true">
+            <svg viewBox="0 0 48 48" focusable="false"><path d="M24 7 43 40H5L24 7Z"/><path d="M24 18v10m0 5v1"/></svg>
+          </div>
+          <h3>We couldn’t load the internships</h3>
+          <p>Your search is still here. Try loading the opportunities again.</p>
+          <button id="retry-button" class="primary-button" type="button">Try again</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="how-it-works" class="how-section" aria-labelledby="how-title">
+      <div class="shell how-grid">
+        <div><h2 id="how-title">A shorter path to a stronger shortlist.</h2></div>
+        <ol>
+          <li><span>1</span><div><h3>Search naturally</h3><p>Use a role, location, domain, skill, or phrase.</p></div></li>
+          <li><span>2</span><div><h3>Narrow the field</h3><p>Combine your search with a technology domain.</p></div></li>
+          <li><span>3</span><div><h3>Review the fit</h3><p>Compare skills and openings before choosing your next step.</p></div></li>
+        </ol>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-inner">
+      <div><a class="brand footer-brand" href="#top">Internship<span>Board</span></a><p>A clear starting point for your internship search.</p></div>
+      <nav aria-label="Footer navigation"><a href="#internships">Opportunities</a><a href="#how-it-works">How it works</a><a href="#top">Back to top</a></nav>
+      <p class="copyright">© <span id="current-year"></span> Internship Board. Sample data for demonstration.</p>
+    </div>
+  </footer>
+</body>
+</html>
