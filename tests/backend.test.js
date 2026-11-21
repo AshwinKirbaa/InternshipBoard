@@ -82,6 +82,27 @@ test('normalizes Lever and Ashby jobs without changing the internship record sha
   assert.deepEqual(ashby.skills, ['Python', 'SQL', 'Machine Learning']);
 });
 
+test('honors provider workplace and internship classifications and excludes unlisted Ashby jobs', () => {
+  const lever = normalizeLeverJob({
+    id: 'lever-hybrid', text: 'Software Engineer, Summer 2027', hostedUrl: 'https://jobs.lever.co/example/hybrid',
+    workplaceType: 'hybrid', categories: { team: 'Engineering', location: 'Pune', commitment: 'Internship' },
+    descriptionPlain: 'Build products.', createdAt: 1795161600000,
+  }, { token: 'example', company: 'Example Labs' });
+  const ashby = normalizeAshbyJob({
+    id: 'ashby-hybrid', title: 'Software Engineer, Summer 2027', jobUrl: 'https://jobs.ashbyhq.com/example/hybrid',
+    location: 'Bengaluru', department: 'Engineering', descriptionPlain: 'Build products.',
+    publishedAt: '2026-11-20T08:00:00Z', workplaceType: 'Hybrid', employmentType: 'Intern', isRemote: true, isListed: true,
+  }, { token: 'example', company: 'Example Labs' });
+  const unlisted = normalizeAshbyJob({
+    id: 'ashby-hidden', title: 'Engineering Intern', jobUrl: 'https://jobs.ashbyhq.com/example/hidden',
+    employmentType: 'Intern', isListed: false,
+  }, { token: 'example', company: 'Example Labs' });
+
+  assert.equal(lever.mode, 'Hybrid');
+  assert.equal(ashby.mode, 'Hybrid');
+  assert.equal(unlisted, null);
+});
+
 test('aggregates every official provider, tolerates partial failure, and removes duplicate URLs', async () => {
   const sources = [
     { provider: 'greenhouse', token: 'green', company: 'Green Co' },
@@ -118,6 +139,38 @@ test('isolates malformed payloads and rejects only when every source is unusable
   await assert.rejects(() => failed.fetchLiveInternships(), /no live internship openings/i);
 });
 
+test('isolates a malformed record URL while preserving healthy provider results', async () => {
+  const sources = [
+    { provider: 'greenhouse', token: 'malformed', company: 'Malformed' },
+    { provider: 'greenhouse', token: 'healthy', company: 'Healthy' },
+  ];
+  const service = createLiveInternshipService({ sources, fetchImpl: async (url) => ({
+    ok: true,
+    json: async () => ({ jobs: url.includes('/malformed/')
+      ? [{ ...liveJob, id: 1, absolute_url: ['https://example.com/jobs/array'] }]
+      : [{ ...liveJob, id: 2, absolute_url: 'https://example.com/jobs/healthy' }] }),
+  }) });
+
+  const result = await service.fetchLiveInternships();
+  assert.deepEqual(result.internships.map(({ sourceUrl }) => sourceUrl), ['https://example.com/jobs/healthy']);
+});
+
+test('deduplicates URL fragments without folding case-sensitive paths', async () => {
+  const service = createLiveInternshipService({
+    sources: [{ provider: 'greenhouse', token: 'example', company: 'Example' }],
+    fetchImpl: async () => ({ ok: true, json: async () => ({ jobs: [
+      { ...liveJob, id: 1, absolute_url: 'https://example.com/roles/RoleA' },
+      { ...liveJob, id: 2, absolute_url: 'https://example.com/roles/rolea' },
+      { ...liveJob, id: 3, absolute_url: 'https://example.com/roles/RoleA#apply' },
+    ] }) }),
+  });
+  const result = await service.fetchLiveInternships();
+  assert.deepEqual(result.internships.map(({ sourceUrl }) => sourceUrl), [
+    'https://example.com/roles/RoleA',
+    'https://example.com/roles/rolea',
+  ]);
+});
+
 test('serves a successful live collection from cache until its TTL expires', async () => {
   let requests = 0;
   let timestamp = Date.parse('2026-11-21T00:00:00Z');
@@ -133,4 +186,21 @@ test('serves a successful live collection from cache until its TTL expires', asy
   timestamp += 60_001;
   await service.fetchLiveInternships();
   assert.equal(requests, 2);
+});
+
+test('coalesces simultaneous cold-cache requests into one upstream refresh', async () => {
+  let requests = 0;
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const service = createLiveInternshipService({
+    sources: [{ provider: 'greenhouse', token: 'example', company: 'Example Labs' }],
+    fetchImpl: async () => { requests += 1; await gate; return { ok: true, json: async () => ({ jobs: [liveJob] }) }; },
+  });
+
+  const first = service.fetchLiveInternships();
+  const second = service.fetchLiveInternships();
+  release();
+  const [firstResult, secondResult] = await Promise.all([first, second]);
+  assert.equal(requests, 1);
+  assert.strictEqual(firstResult, secondResult);
 });

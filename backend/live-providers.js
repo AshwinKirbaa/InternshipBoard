@@ -53,31 +53,40 @@ async function fetchSource(source, fetchImpl) {
 export function createLiveInternshipService({ fetchImpl = fetch, sources = LIVE_SOURCES, now = () => new Date(), cacheTtlMs = 15 * 60_000 } = {}) {
   let cached = null;
   let expiresAt = 0;
+  let inFlight = null;
+
+  const refresh = async () => {
+    const settled = await Promise.allSettled(sources.map((source) => fetchSource(source, fetchImpl)));
+    const available = settled.filter(({ status }) => status === 'fulfilled').map(({ value }) => value);
+    const seen = new Set();
+    const internships = available.flatMap(({ records }) => records).filter((record) => {
+      const url = new URL(record.sourceUrl);
+      url.hash = '';
+      const key = url.toString();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).sort((a, b) => b.publishedAt.localeCompare(a.publishedAt)).slice(0, 200);
+    if (!internships.length) throw new Error('No live internship openings were found');
+    const providers = [...new Set(available.filter(({ records }) => records.length).map(({ provider }) => provider))];
+    const completedAt = now();
+    cached = {
+      internships,
+      meta: {
+        source: 'Official employer job boards', live: true, fetchedAt: completedAt.toISOString(), count: internships.length,
+        sourcesChecked: sources.length, sourcesAvailable: available.length, providers,
+      },
+    };
+    expiresAt = completedAt.getTime() + cacheTtlMs;
+    return cached;
+  };
 
   return {
-    async fetchLiveInternships() {
+    fetchLiveInternships() {
       const currentTime = now().getTime();
-      if (cached && currentTime < expiresAt) return cached;
-      const settled = await Promise.allSettled(sources.map((source) => fetchSource(source, fetchImpl)));
-      const available = settled.filter(({ status }) => status === 'fulfilled').map(({ value }) => value);
-      const seen = new Set();
-      const internships = available.flatMap(({ records }) => records).filter((record) => {
-        const key = record.sourceUrl.toLowerCase().replace(/\/$/, '');
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      }).sort((a, b) => b.publishedAt.localeCompare(a.publishedAt)).slice(0, 200);
-      if (!internships.length) throw new Error('No live internship openings were found');
-      const providers = [...new Set(available.filter(({ records }) => records.length).map(({ provider }) => provider))];
-      cached = {
-        internships,
-        meta: {
-          source: 'Official employer job boards', live: true, fetchedAt: now().toISOString(), count: internships.length,
-          sourcesChecked: sources.length, sourcesAvailable: available.length, providers,
-        },
-      };
-      expiresAt = currentTime + cacheTtlMs;
-      return cached;
+      if (cached && currentTime < expiresAt) return Promise.resolve(cached);
+      if (!inFlight) inFlight = refresh().finally(() => { inFlight = null; });
+      return inFlight;
     },
   };
 }
