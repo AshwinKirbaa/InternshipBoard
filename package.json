@@ -7,7 +7,9 @@
     "test": "node --test",
     "test:browser": "node tests/browser-qa.mjs",
     "test:all": "npm test && npm run test:browser",
+    "start": "node backend/server.js",
     "start:api": "node backend/server.js",
+    "db:seed": "node backend/seed.js",
     "serve": "npx --yes serve ."
   }
 }
