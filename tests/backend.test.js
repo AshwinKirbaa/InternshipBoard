@@ -4,10 +4,12 @@ import assert from 'node:assert/strict';
 import {
   extractSkills,
   isInternshipOpening,
+  normalizeAshbyJob,
   normalizeGreenhouseJob,
   normalizeGreenhouseResponses,
+  normalizeLeverJob,
 } from '../backend/provider.js';
-import { fetchLiveInternships } from '../backend/server.js';
+import { createLiveInternshipService } from '../backend/live-providers.js';
 
 const liveJob = {
   id: 901,
@@ -60,21 +62,75 @@ test('drops malformed, unsafe, unrelated, and duplicate jobs across boards', () 
   assert.equal(result[0].id, 'greenhouse-example-901');
 });
 
-test('fetches and merges successful public boards while tolerating one failed board', async () => {
-  const fetchImpl = async (url) => {
-    if (url.includes('/broken/')) return { ok: false, status: 503 };
-    return { ok: true, json: async () => ({ jobs: [liveJob] }) };
-  };
-  const boards = [{ token: 'example', company: 'Example Labs' }, { token: 'broken', company: 'Broken' }];
-  const result = await fetchLiveInternships({ fetchImpl, boards, now: () => new Date('2026-11-21T00:00:00Z') });
-  assert.equal(result.internships.length, 1);
-  assert.equal(result.meta.source, 'Official Greenhouse job boards');
-  assert.equal(result.meta.boardsChecked, 2);
-  assert.equal(result.meta.boardsAvailable, 1);
+test('normalizes Lever and Ashby jobs without changing the internship record shape', () => {
+  const lever = normalizeLeverJob({
+    id: 'lever-1', text: 'Software Engineer Intern', hostedUrl: 'https://jobs.lever.co/example/lever-1',
+    categories: { team: 'Engineering', location: 'Remote - India', commitment: 'Intern' },
+    descriptionPlain: 'Build web products with TypeScript and React.', createdAt: 1795161600000,
+  }, { token: 'example', company: 'Example Labs' });
+  const ashby = normalizeAshbyJob({
+    id: 'ashby-1', title: 'Data Science Intern', jobUrl: 'https://jobs.ashbyhq.com/example/ashby-1',
+    location: 'Bengaluru', department: 'Data', descriptionPlain: 'Use Python, SQL, and machine learning.',
+    publishedAt: '2026-11-20T08:00:00Z', isRemote: false,
+  }, { token: 'example', company: 'Example Labs' });
+
+  assert.deepEqual(Object.keys(lever).sort(), Object.keys(ashby).sort());
+  assert.equal(lever.source, 'Lever');
+  assert.equal(lever.mode, 'Remote');
+  assert.deepEqual(lever.skills, ['TypeScript', 'React']);
+  assert.equal(ashby.source, 'Ashby');
+  assert.deepEqual(ashby.skills, ['Python', 'SQL', 'Machine Learning']);
 });
 
-test('rejects when every board fails or returns no internships', async () => {
-  const boards = [{ token: 'empty', company: 'Empty' }];
-  await assert.rejects(() => fetchLiveInternships({ boards, fetchImpl: async () => ({ ok: false, status: 503 }) }), /no live internship openings/i);
-  await assert.rejects(() => fetchLiveInternships({ boards, fetchImpl: async () => ({ ok: true, json: async () => ({ jobs: [] }) }) }), /no live internship openings/i);
+test('aggregates every official provider, tolerates partial failure, and removes duplicate URLs', async () => {
+  const sources = [
+    { provider: 'greenhouse', token: 'green', company: 'Green Co' },
+    { provider: 'lever', token: 'lever', company: 'Lever Co' },
+    { provider: 'ashby', token: 'broken', company: 'Broken Co' },
+  ];
+  const fetchImpl = async (url) => {
+    if (url.includes('/broken/')) return { ok: false, status: 503 };
+    if (url.includes('greenhouse')) return { ok: true, json: async () => ({ jobs: [liveJob] }) };
+    return { ok: true, json: async () => ([{
+      id: 'lever-1', text: 'Frontend Engineering Intern', hostedUrl: liveJob.absolute_url,
+      categories: { team: 'Engineering', location: 'Remote' }, descriptionPlain: 'React', createdAt: 1795161600000,
+    }, {
+      id: 'lever-2', text: 'Backend Intern', hostedUrl: 'https://jobs.lever.co/lever/lever-2',
+      categories: { team: 'Engineering', location: 'Pune' }, descriptionPlain: 'Node.js and SQL', createdAt: 1795161700000,
+    }]) };
+  };
+  const service = createLiveInternshipService({ fetchImpl, sources, now: () => new Date('2026-11-21T00:00:00Z') });
+  const result = await service.fetchLiveInternships();
+
+  assert.equal(result.internships.length, 2);
+  assert.deepEqual(new Set(result.internships.map(({ source }) => source)), new Set(['Greenhouse', 'Lever']));
+  assert.equal(result.meta.sourcesChecked, 3);
+  assert.equal(result.meta.sourcesAvailable, 2);
+  assert.deepEqual(result.meta.providers, ['Greenhouse', 'Lever']);
+});
+
+test('isolates malformed payloads and rejects only when every source is unusable', async () => {
+  const sources = [{ provider: 'lever', token: 'empty', company: 'Empty' }];
+  const malformed = createLiveInternshipService({ sources, fetchImpl: async () => ({ ok: true, json: async () => ({ jobs: 'wrong' }) }) });
+  await assert.rejects(() => malformed.fetchLiveInternships(), /no live internship openings/i);
+
+  const failed = createLiveInternshipService({ sources, fetchImpl: async () => ({ ok: false, status: 503 }) });
+  await assert.rejects(() => failed.fetchLiveInternships(), /no live internship openings/i);
+});
+
+test('serves a successful live collection from cache until its TTL expires', async () => {
+  let requests = 0;
+  let timestamp = Date.parse('2026-11-21T00:00:00Z');
+  const service = createLiveInternshipService({
+    sources: [{ provider: 'greenhouse', token: 'example', company: 'Example Labs' }],
+    fetchImpl: async () => { requests += 1; return { ok: true, json: async () => ({ jobs: [liveJob] }) }; },
+    now: () => new Date(timestamp), cacheTtlMs: 60_000,
+  });
+
+  await service.fetchLiveInternships();
+  await service.fetchLiveInternships();
+  assert.equal(requests, 1);
+  timestamp += 60_001;
+  await service.fetchLiveInternships();
+  assert.equal(requests, 2);
 });
