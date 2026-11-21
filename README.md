@@ -1,10 +1,12 @@
 # Internship Board
 
-Internship Board is a responsive full-stack portfolio project. Its Express REST API stores internship records in SQLite with validation, pagination, and complete CRUD operations; the accessible frontend reads those records and retains EdVyro's five supplied records as an offline fallback.
+Internship Board is a responsive full-stack portfolio project. It aggregates current internships from official Greenhouse, Lever, and Ashby employer feeds while its Express REST API retains a separate SQLite CRUD collection with validation and pagination. EdVyro's five supplied records remain the final offline fallback.
 
 ## Features
 
 - Persistent SQLite records seeded from EdVyro's five supplied internships
+- Live, source-attributed openings from official Greenhouse, Lever, and Ashby feeds
+- Partial-provider failure isolation, URL deduplication, and a 15-minute successful-response cache
 - List, detail, create, replace, update, and delete API endpoints
 - Validated inputs, predictable status codes, and consistent JSON errors
 - Paginated list responses
@@ -14,7 +16,7 @@ Internship Board is a responsive full-stack portfolio project. Its Express REST 
 - Loading, empty, fallback, and recoverable error states
 - Keyboard-accessible navigation and visible focus states
 
-> **Data note:** The seeded internships are fictional records supplied for this portfolio exercise. The repository still includes Greenhouse normalization code from the earlier frontend milestone, but persistent CRUD records are now the application's primary source.
+> **Data note:** Live listings open the employer's original posting and are never written into SQLite. The five seeded internships are fictional records supplied for the EdVyro portfolio exercise and remain available through the persistent CRUD API.
 
 ## Technology stack
 
@@ -91,6 +93,7 @@ All responses use JSON except successful deletion (`204 No Content`). List respo
 | Method | Endpoint | Purpose | Success |
 | --- | --- | --- | --- |
 | `GET` | `/health` | Service health | `200` |
+| `GET` | `/api/live-internships` | Cached live openings from official employer feeds | `200` |
 | `GET` | `/api/internships?page=1&limit=10` | Paginated list | `200` |
 | `GET` | `/api/internships/:id` | Record detail | `200` |
 | `POST` | `/api/internships` | Create a record | `201` |

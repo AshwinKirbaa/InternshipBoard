@@ -21,11 +21,12 @@ function allowedOrigins() {
 
 const defaultStaticRoot = fileURLToPath(new URL('../', import.meta.url));
 
-export function createApp({ db, staticRoot = defaultStaticRoot }) {
+export function createApp({ db, staticRoot = defaultStaticRoot, liveInternships } = {}) {
   const app = express();
   app.disable('x-powered-by');
 
   app.use((request, response, next) => {
+    if (!request.path.startsWith('/api/')) return next();
     const origin = request.headers.origin;
     if (!origin) return next();
     if (!allowedOrigins().has(origin)) return response.status(403).json(errorBody('ORIGIN_NOT_ALLOWED', 'Origin not allowed'));
@@ -41,6 +42,18 @@ export function createApp({ db, staticRoot = defaultStaticRoot }) {
   app.use(express.json({ limit: '100kb' }));
 
   app.get('/health', (_request, response) => response.json({ status: 'ok', service: 'internship-board-api' }));
+
+  app.get('/api/live-internships', async (_request, response) => {
+    if (typeof liveInternships !== 'function') {
+      return response.status(503).json(errorBody('LIVE_DATA_UNAVAILABLE', 'Live internship data is temporarily unavailable'));
+    }
+    try {
+      const result = await liveInternships();
+      return response.json({ data: result.internships, meta: result.meta });
+    } catch {
+      return response.status(503).json(errorBody('LIVE_DATA_UNAVAILABLE', 'Live internship data is temporarily unavailable'));
+    }
+  });
 
   app.get('/api/internships', (request, response) => {
     const pagination = parsePagination(request.query);

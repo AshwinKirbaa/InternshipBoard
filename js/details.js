@@ -37,4 +37,5 @@ async function renderDetails() {
   card.hidden = false;
 }
 
-document.addEventListener('DOMContentLoaded', renderDetails);
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', renderDetails, { once: true });
+else renderDetails();
