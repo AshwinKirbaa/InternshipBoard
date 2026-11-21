@@ -99,6 +99,7 @@ export function createApp({ db, staticRoot = defaultStaticRoot }) {
 
   app.use('/css', express.static(path.join(staticRoot, 'css')));
   app.use('/js', express.static(path.join(staticRoot, 'js')));
+  app.use('/assets', express.static(path.join(staticRoot, 'assets')));
   app.get('/', express.static(staticRoot, { index: 'index.html' }));
   app.get(['/index.html', '/internship.html'], express.static(staticRoot));
   app.use((request, response) => response.status(404).json(errorBody('NOT_FOUND', 'Route not found')));

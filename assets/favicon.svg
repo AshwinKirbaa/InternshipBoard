@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img">
+  <title>Internship Board</title>
+  <rect width="64" height="64" rx="16" fill="#1769e0"/>
+  <path d="M23 21v-3a5 5 0 0 1 5-5h8a5 5 0 0 1 5 5v3h5a6 6 0 0 1 6 6v19a6 6 0 0 1-6 6H18a6 6 0 0 1-6-6V27a6 6 0 0 1 6-6h5Zm6-2v2h6v-2h-6Zm-11 8v6h11v-2h6v2h11v-6H18Zm28 12H35v2h-6v-2H18v7h28v-7Z" fill="#fff"/>
+</svg>
