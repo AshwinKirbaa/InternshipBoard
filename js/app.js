@@ -241,9 +241,11 @@ async function initializeData() {
     document.querySelector('#domain-total').textContent = String(domains.size);
     document.querySelector('#remote-total').textContent = String(sourceRecords.filter(({ mode }) => mode === 'Remote').length);
     document.querySelector('#openings-total').textContent = String(sourceRecords.reduce((total, { openings }) => total + openings, 0));
-    document.querySelector('#summary-disclosure').textContent = loaded.meta.live
-      ? `Current openings aggregated from ${loaded.meta.boardsAvailable || 'available'} official employer job boards. Always verify requirements on the original posting.`
-      : 'Live listings are temporarily unavailable. Showing the five fictional EdVyro records instead.';
+    document.querySelector('#summary-disclosure').textContent = loaded.meta.persistent
+      ? 'Internships are loaded from the persistent project database. Records are fictional and intended for this portfolio exercise.'
+      : loaded.meta.live
+        ? `Current openings aggregated from ${loaded.meta.boardsAvailable || 'available'} official employer job boards. Always verify requirements on the original posting.`
+        : 'The API is temporarily unavailable. Showing the five fictional EdVyro records from the built-in fallback.';
     populateSelect(document.querySelector('#domain-filter'), [...domains].sort());
     populateSelect(document.querySelector('#mode-filter'), [...new Set(sourceRecords.map(({ mode }) => mode))].sort());
     populateSelect(document.querySelector('#skill-filter'), [...new Set(sourceRecords.flatMap(({ skills }) => skills))].sort());

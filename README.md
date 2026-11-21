@@ -1,129 +1,157 @@
 # Internship Board
 
-Internship Board is a responsive, accessible internship discovery website built for Milestone 2. It combines current internship openings from official employer job boards with EdVyro's five supplied records as a resilient fallback.
+Internship Board is a responsive full-stack portfolio project. Its Express REST API stores internship records in SQLite with validation, pagination, and complete CRUD operations; the accessible frontend reads those records and retains EdVyro's five supplied records as an offline fallback.
 
 ## Features
 
-- Real-time search across title, location, domain, work mode, and skills
-- Domain, work-mode, and skill filters that combine with the search query
-- Current openings from seven official employer Greenhouse boards
-- External live cards link directly to the employer's original posting
-- All five EdVyro seed records remain available when the live API is unavailable
-- Selectable fallback cards have an internal, shareable details page
+- Persistent SQLite records seeded from EdVyro's five supplied internships
+- List, detail, create, replace, update, and delete API endpoints
+- Validated inputs, predictable status codes, and consistent JSON errors
+- Paginated list responses
+- Search plus domain, work-mode, and skill filters
+- Internal record detail pages backed by the API
 - Responsive one-, two-, and three-column layouts
-- Loading, empty, and recoverable error states
-- Honest source labels and no invented application links
-- Responsive keyboard-accessible navigation
-- Graceful handling of missing optional fields and malformed records
+- Loading, empty, fallback, and recoverable error states
+- Keyboard-accessible navigation and visible focus states
 
-> **Data note:** Live listings come from public employer Greenhouse job-board APIs and can change at any time. If every provider is unavailable, the interface clearly switches to EdVyro's fictional five-record sample instead of displaying stale or invented openings.
+> **Data note:** The seeded internships are fictional records supplied for this portfolio exercise. The repository still includes Greenhouse normalization code from the earlier frontend milestone, but persistent CRUD records are now the application's primary source.
 
 ## Technology stack
 
-- Semantic HTML5
-- Mobile-first CSS3
+- Semantic HTML5 and mobile-first CSS
 - Vanilla JavaScript ES modules
-- Dependency-free Node.js HTTP API
+- Node.js 22.5 or newer
+- Express 5
+- SQLite through Node.js's built-in `node:sqlite` module
 - Node.js built-in test runner
-- Headless Google Chrome for browser QA and screenshots
+- Headless Chrome browser QA
 
-No frontend framework, CSS framework, runtime dependency, or build step is used.
+There is no frontend framework, CSS framework, or build step.
 
 ## Project structure
 
 ```text
 .
-├── index.html
-├── css/
-│   └── styles.css
+├── backend/
+│   ├── app.js             # Express routes and response contract
+│   ├── db.js              # SQLite repository
+│   ├── schema.sql         # Persistent data model
+│   ├── seed-data.js       # Five supplied EdVyro records
+│   ├── seed.js            # Repeatable seed command
+│   ├── provider.js        # Earlier live-provider normalizer
+│   └── server.js          # Process entry point
+├── css/styles.css
 ├── js/
 │   ├── app.js
-│   └── data.js
-├── backend/
-│   ├── provider.js
-│   └── server.js
+│   ├── data.js
+│   └── details.js
 ├── tests/
-│   ├── app.test.js
-│   ├── contracts.test.js
-│   └── browser-qa.mjs
-├── reports/screenshots/
-├── docs/superpowers/
-├── PRODUCT.md
-├── package.json
-└── README.md
+├── index.html
+├── internship.html
+└── package.json
 ```
 
 ## Run locally
 
-You need Node.js 22 or newer to run both the unit and browser QA scripts. There are no packages to install.
-
-1. Open a terminal in the project folder.
-2. Start a local static server:
+1. Install dependencies and seed the database:
 
    ```powershell
-   npx serve .
+   npm install
+   npm run db:seed
    ```
 
-3. In a second terminal, start the live API with `npm run start:api`.
-4. Open the local address printed by the static server (usually `http://localhost:3000`).
+2. Start the API (default: `http://localhost:10000`):
 
-You can also use any static-file server, such as VS Code Live Server. Opening `index.html` directly may work in some browsers, but a local server is recommended because the application uses ES modules.
+   ```powershell
+   npm start
+   ```
 
-## Search and filtering
+3. In a second terminal, start the static frontend:
 
-Typing in the search field updates results immediately. Search is case-insensitive, trims extra whitespace, and matches title, location, domain, work mode, and skills. Domain, mode, and skill filters intersect with the current query. Use **Clear filters** in the toolbar or empty state to restore every listing.
+   ```powershell
+   npm run serve
+   ```
 
-Selecting a live internship opens the original employer posting in a new tab. A supplied fallback record opens its dedicated internal details page, which identifies the listing as fictional rather than inventing an external application destination.
+4. Open the address printed by the static server, normally `http://localhost:3000`.
 
-## Accessibility
+Copy `.env.example` to `.env` if you want a local reference, then set values in your shell or hosting provider. The app reads `PORT`, `DATABASE_PATH`, and `ALLOWED_ORIGINS`; it intentionally does not load `.env` files automatically.
 
-- Semantic header, navigation, main, sections, articles, and footer
-- Explicit labels for search and domain controls
-- Live result-count announcements and a dedicated alert for load failures
-- Skip link, logical source order, and visible high-contrast focus rings
-- Touch targets sized for mobile use
-- Plain-language labels for every search and filter control
-- Sufficient text contrast and non-color status communication
-- `prefers-reduced-motion` support
+## Data model
+
+An internship contains:
+
+- `id`: unique string identifier
+- `title`, `domain`, and `location`: non-empty strings
+- `mode`: `Remote`, `Hybrid`, or `On-site`
+- `skills`: one to twenty unique, non-empty strings
+- `openings`: integer from 1 to 1000
+- `durationWeeks`: `null` or integer from 1 to 104
+- `applicationsOpen`: boolean
+
+## REST API
+
+All responses use JSON except successful deletion (`204 No Content`). List responses use `{ "data": [...], "pagination": {...} }`; single-record responses use `{ "data": {...} }`. Errors use `{ "error": { "code", "message", "details"? } }`.
+
+| Method | Endpoint | Purpose | Success |
+| --- | --- | --- | --- |
+| `GET` | `/health` | Service health | `200` |
+| `GET` | `/api/internships?page=1&limit=10` | Paginated list | `200` |
+| `GET` | `/api/internships/:id` | Record detail | `200` |
+| `POST` | `/api/internships` | Create a record | `201` |
+| `PUT` | `/api/internships/:id` | Replace a record | `200` |
+| `PATCH` | `/api/internships/:id` | Update selected fields | `200` |
+| `DELETE` | `/api/internships/:id` | Delete a record | `204` |
+
+`page` must be a positive integer. `limit` must be an integer between 1 and 100. Invalid input returns `422`, missing records return `404`, and duplicate IDs return `409`.
+
+### API examples
+
+List the first two records:
+
+```powershell
+curl.exe "http://localhost:10000/api/internships?page=1&limit=2"
+```
+
+Create a record:
+
+```powershell
+curl.exe -X POST http://localhost:10000/api/internships `
+  -H "Content-Type: application/json" `
+  -d '{"id":"INT-201","title":"Platform Intern","domain":"Full Stack Development","mode":"Hybrid","location":"Chennai","skills":["Node.js","SQL"],"openings":2,"durationWeeks":8,"applicationsOpen":true}'
+```
+
+Update and delete it:
+
+```powershell
+curl.exe -X PATCH http://localhost:10000/api/internships/INT-201 -H "Content-Type: application/json" -d '{"mode":"Remote","location":"India"}'
+curl.exe -X DELETE http://localhost:10000/api/internships/INT-201
+```
+
+## Search and accessibility
+
+Search is case-insensitive and matches title, location, domain, mode, and skills. Filters intersect with the current query. The interface uses semantic landmarks, explicit labels, live status announcements, a skip link, visible focus rings, touch-friendly controls, and reduced-motion support.
 
 ## Testing
 
-Run the automated logic and markup/style contract tests:
+Run all unit, repository, API, and markup contract tests:
 
 ```powershell
 npm test
 ```
 
-Run browser QA and regenerate screenshots (Windows with Google Chrome installed at its default location):
+Run browser QA and regenerate screenshots on Windows with Chrome installed:
 
 ```powershell
-node tests/browser-qa.mjs
+npm run test:browser
 ```
-
-Or run both suites together:
-
-```powershell
-npm run test:all
-```
-
-The browser script verifies the EdVyro 360px portfolio width plus all five project viewports, the official record count, horizontal overflow, absence of unsupported application actions, four-way combined filtering, empty state, retry behavior, unique filter options, mobile keyboard navigation, and browser console errors.
 
 ## Deployment
 
-The frontend is deployed as a static Vercel project. Requests under `/api/*` are rewritten to the Render web service. The included `render.yaml` defines the dependency-free Node API, its health check, runtime, and allowed browser origins.
+The static frontend can remain on Vercel with `/api/*` rewritten to the Render service. The included `render.yaml` starts the Express API and configures its health check and allowed browser origin.
 
-- Production site: <https://internship-board-nu.vercel.app/>
-- Live API: <https://internship-board-api-3497.onrender.com/api/internships>
+SQLite persists locally. A hosted Render deployment needs a persistent disk and `DATABASE_PATH` pointed at that disk's mount path; do not rely on Render's ephemeral filesystem for durable production writes. Persistent disks require an eligible Render plan, so confirm pricing before enabling one.
+
+Current project URLs from the earlier milestone:
+
+- Frontend: <https://internship-board-nu.vercel.app/>
 - API health: <https://internship-board-api-3497.onrender.com/health>
-
-Render commands:
-
-- Build: `npm install --ignore-scripts`
-- Start: `npm run start:api`
-- Health check: `/health`
-
-Set `ALLOWED_ORIGINS` to the final Vercel production origin plus the local development origins before exposing the Render API directly to browsers.
-
-## Screenshots
-
-Verified screenshots are stored in `reports/screenshots/` for desktop, tablet, mobile, combined search/filter results, and the empty state.

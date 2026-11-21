@@ -1,12 +1,12 @@
-import { internships } from './data.js';
+import { loadInternshipDetail } from './data.js';
 
 function setText(selector, value) {
   document.querySelector(selector).textContent = value;
 }
 
-function renderDetails() {
+async function renderDetails() {
   const recordId = new URLSearchParams(window.location.search).get('id');
-  const record = internships.find(({ id }) => id === recordId);
+  const record = await loadInternshipDetail(recordId);
   const card = document.querySelector('#detail-card');
   const error = document.querySelector('#detail-error');
 

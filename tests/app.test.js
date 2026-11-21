@@ -8,7 +8,7 @@ import {
   isSafeExternalUrl,
   normalizeInternship,
 } from '../js/app.js';
-import { internships as fallbackInternships, loadInternships } from '../js/data.js';
+import { internships as fallbackInternships, loadInternshipDetail, loadInternships } from '../js/data.js';
 
 const records = [
   {
@@ -83,14 +83,32 @@ test('uses a verified original URL for live records and internal details for sam
   assert.equal(getRecordUrl({ id: 'bad', isLive: true, sourceUrl: 'javascript:alert(1)' }), 'internship.html?id=bad');
 });
 
-test('loads live API records and falls back to supplied samples on failure', async () => {
-  const livePayload = { internships: [{ ...records[0], id: 'live-1', company: 'Live Co', sourceUrl: 'https://example.com/1', isLive: true }], meta: { live: true, source: 'Official boards' } };
-  const live = await loadInternships(async () => ({ ok: true, json: async () => livePayload }));
-  assert.equal(live.records[0].id, 'live-1');
-  assert.equal(live.meta.live, true);
+test('loads paginated persistent API records and falls back to supplied samples on failure', async () => {
+  const apiPayload = {
+    data: [{ ...records[0], id: 'INT-201' }],
+    pagination: { page: 1, limit: 100, total: 1, totalPages: 1, hasNextPage: false, hasPreviousPage: false },
+  };
+  const loaded = await loadInternships(async () => ({ ok: true, json: async () => apiPayload }));
+  assert.equal(loaded.records[0].id, 'INT-201');
+  assert.equal(loaded.meta.live, false);
+  assert.equal(loaded.meta.persistent, true);
+  assert.equal(loaded.meta.count, 1);
 
   const fallback = await loadInternships(async () => { throw new Error('offline'); });
   assert.equal(fallback.records.length, fallbackInternships.length);
   assert.equal(fallback.meta.live, false);
   assert.equal(fallback.meta.fallback, true);
+});
+
+test('loads persistent detail records and falls back only for supplied IDs', async () => {
+  const persistent = await loadInternshipDetail('INT-201', async () => ({
+    ok: true,
+    json: async () => ({ data: { ...records[0], id: 'INT-201' } }),
+  }));
+  assert.equal(persistent.id, 'INT-201');
+
+  const supplied = await loadInternshipDetail('INT-101', async () => { throw new Error('offline'); });
+  assert.equal(supplied.title, 'Frontend Intern');
+  const missing = await loadInternshipDetail('INT-999', async () => ({ ok: false, status: 404 }));
+  assert.equal(missing, null);
 });
