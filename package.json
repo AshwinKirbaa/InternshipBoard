@@ -11,5 +11,8 @@
     "start:api": "node backend/server.js",
     "db:seed": "node backend/seed.js",
     "serve": "npx --yes serve ."
+  },
+  "dependencies": {
+    "express": "^5.1.0"
   }
 }
