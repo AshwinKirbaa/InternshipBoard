@@ -3,12 +3,13 @@ import assert from 'node:assert/strict';
 
 import {
   filterInternships,
+  getSourceLabel,
   getRecordUrl,
   getDetailsUrl,
   isSafeExternalUrl,
   normalizeInternship,
 } from '../js/app.js';
-import { internships as fallbackInternships, loadInternships } from '../js/data.js';
+import { internships as fallbackInternships, loadInternshipDetail, loadInternships } from '../js/data.js';
 
 const records = [
   {
@@ -83,14 +84,65 @@ test('uses a verified original URL for live records and internal details for sam
   assert.equal(getRecordUrl({ id: 'bad', isLive: true, sourceUrl: 'javascript:alert(1)' }), 'internship.html?id=bad');
 });
 
-test('loads live API records and falls back to supplied samples on failure', async () => {
-  const livePayload = { internships: [{ ...records[0], id: 'live-1', company: 'Live Co', sourceUrl: 'https://example.com/1', isLive: true }], meta: { live: true, source: 'Official boards' } };
-  const live = await loadInternships(async () => ({ ok: true, json: async () => livePayload }));
-  assert.equal(live.records[0].id, 'live-1');
-  assert.equal(live.meta.live, true);
+test('loads paginated persistent API records and falls back to supplied samples on failure', async () => {
+  const apiPayload = {
+    data: [{ ...records[0], id: 'INT-201' }],
+    pagination: { page: 1, limit: 100, total: 1, totalPages: 1, hasNextPage: false, hasPreviousPage: false },
+  };
+  const loaded = await loadInternships(async () => ({ ok: true, json: async () => apiPayload }));
+  assert.equal(loaded.records[0].id, 'INT-201');
+  assert.equal(loaded.meta.live, false);
+  assert.equal(loaded.meta.persistent, true);
+  assert.equal(loaded.meta.count, 1);
+  assert.equal(loaded.records[0].isSample, false);
 
   const fallback = await loadInternships(async () => { throw new Error('offline'); });
   assert.equal(fallback.records.length, fallbackInternships.length);
   assert.equal(fallback.meta.live, false);
   assert.equal(fallback.meta.fallback, true);
+  assert.equal(fallback.records[0].isSample, true);
+});
+
+test('loads persistent detail records and falls back only for supplied IDs', async () => {
+  const persistent = await loadInternshipDetail('INT-201', async () => ({
+    ok: true,
+    json: async () => ({ data: { ...records[0], id: 'INT-201' } }),
+  }));
+  assert.equal(persistent.id, 'INT-201');
+  assert.equal(persistent.isSample, false);
+
+  const supplied = await loadInternshipDetail('INT-101', async () => { throw new Error('offline'); });
+  assert.equal(supplied.title, 'Frontend Intern');
+  assert.equal(supplied.isSample, true);
+  const missing = await loadInternshipDetail('INT-101', async () => ({ ok: false, status: 404 }));
+  assert.equal(missing, null);
+});
+
+test('labels live, database, and fallback records according to their real source', () => {
+  assert.equal(getSourceLabel({ isLive: true, source: 'Greenhouse' }), 'Live · Greenhouse');
+  assert.equal(getSourceLabel({ isSample: true }), 'Supplied sample record');
+  assert.equal(getSourceLabel({}), 'Project database record');
+});
+
+test('accepts an authoritative empty database without substituting seed records', async () => {
+  const loaded = await loadInternships(async () => ({
+    ok: true,
+    json: async () => ({ data: [], pagination: { page: 1, limit: 100, total: 0, totalPages: 0, hasNextPage: false, hasPreviousPage: false } }),
+  }));
+  assert.deepEqual(loaded.records, []);
+  assert.equal(loaded.meta.persistent, true);
+  assert.equal(loaded.meta.count, 0);
+});
+
+test('loads every page so frontend search and totals include records after 100', async () => {
+  const calls = [];
+  const firstPage = Array.from({ length: 100 }, (_, index) => ({ ...records[0], id: `INT-${String(index + 1).padStart(3, '0')}` }));
+  const loaded = await loadInternships(async (url) => {
+    calls.push(url);
+    return url.includes('page=2')
+      ? { ok: true, json: async () => ({ data: [{ ...records[0], id: 'INT-101' }], pagination: { page: 2, limit: 100, total: 101, totalPages: 2, hasNextPage: false, hasPreviousPage: true } }) }
+      : { ok: true, json: async () => ({ data: firstPage, pagination: { page: 1, limit: 100, total: 101, totalPages: 2, hasNextPage: true, hasPreviousPage: false } }) };
+  });
+  assert.equal(loaded.records.length, 101);
+  assert.deepEqual(calls, ['/api/internships?limit=100&page=1', '/api/internships?limit=100&page=2']);
 });

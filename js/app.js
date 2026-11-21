@@ -44,9 +44,16 @@ export function normalizeInternship(record) {
     source: cleanText(record.source),
     sourceUrl: isSafeExternalUrl(record.sourceUrl) ? record.sourceUrl : '',
     isLive: record.isLive === true,
+    isSample: record.isSample === true,
   };
 
   return normalized;
+}
+
+export function getSourceLabel(record) {
+  if (record?.isLive) return `Live · ${record.source || 'Official source'}`;
+  if (record?.isSample) return 'Supplied sample record';
+  return 'Project database record';
 }
 
 export function filterInternships(records, query = '', domain = 'all', mode = 'all', skill = 'all') {
@@ -124,7 +131,7 @@ export function createInternshipCard(record) {
   const openingText = `${record.openings} ${record.openings === 1 ? 'opening' : 'openings'}`;
   const openings = createElement('div', 'openings-count');
   openings.append(createIcon('M12 3v18M3 12h18'), createElement('strong', '', openingText));
-  const sourceText = record.isLive ? `Live · ${record.source || 'Official source'}` : 'Supplied sample record';
+  const sourceText = getSourceLabel(record);
   footer.append(openings, createElement('span', `source-label${record.isLive ? ' is-live' : ''}`, sourceText));
   card.append(top, meta, skillsBlock);
   if (description) card.append(description);
@@ -235,15 +242,16 @@ async function initializeData() {
     const { loadInternships } = await import('./data.js');
     const loaded = await loadInternships();
     sourceRecords = loaded.records.map(normalizeInternship).filter(Boolean);
-    if (!sourceRecords.length) throw new Error('No valid internships were returned');
     const domains = new Set(sourceRecords.map(({ domain }) => domain));
     document.querySelector('#opportunity-total').textContent = String(sourceRecords.length);
     document.querySelector('#domain-total').textContent = String(domains.size);
     document.querySelector('#remote-total').textContent = String(sourceRecords.filter(({ mode }) => mode === 'Remote').length);
     document.querySelector('#openings-total').textContent = String(sourceRecords.reduce((total, { openings }) => total + openings, 0));
-    document.querySelector('#summary-disclosure').textContent = loaded.meta.live
-      ? `Current openings aggregated from ${loaded.meta.boardsAvailable || 'available'} official employer job boards. Always verify requirements on the original posting.`
-      : 'Live listings are temporarily unavailable. Showing the five fictional EdVyro records instead.';
+    document.querySelector('#summary-disclosure').textContent = loaded.meta.persistent
+      ? 'Internships are loaded from the persistent project database. Records are fictional and intended for this portfolio exercise.'
+      : loaded.meta.live
+        ? `Current openings aggregated from ${loaded.meta.boardsAvailable || 'available'} official employer job boards. Always verify requirements on the original posting.`
+        : 'The API is temporarily unavailable. Showing the five fictional EdVyro records from the built-in fallback.';
     populateSelect(document.querySelector('#domain-filter'), [...domains].sort());
     populateSelect(document.querySelector('#mode-filter'), [...new Set(sourceRecords.map(({ mode }) => mode))].sort());
     populateSelect(document.querySelector('#skill-filter'), [...new Set(sourceRecords.flatMap(({ skills }) => skills))].sort());

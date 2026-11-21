@@ -10,14 +10,25 @@ export const internships = [
 
 export async function loadInternships(fetchImpl = fetch) {
   try {
-    const response = await fetchImpl('/api/internships', { headers: { accept: 'application/json' } });
-    if (!response.ok) throw new Error(`Live API returned HTTP ${response.status}`);
-    const payload = await response.json();
-    if (!payload || !Array.isArray(payload.internships) || !payload.internships.length) throw new Error('Live API returned no internships');
-    return { records: payload.internships, meta: payload.meta || { live: true, source: 'Official job boards' } };
+    const records = [];
+    let page = 1;
+    let pagination;
+    do {
+      const response = await fetchImpl(`/api/internships?limit=100&page=${page}`, { headers: { accept: 'application/json' } });
+      if (!response.ok) throw new Error(`Internship API returned HTTP ${response.status}`);
+      const payload = await response.json();
+      if (!payload || !Array.isArray(payload.data)) throw new Error('Internship API returned an invalid collection');
+      records.push(...payload.data);
+      pagination = payload.pagination;
+      page += 1;
+    } while (pagination?.hasNextPage);
+    return {
+      records: records.map((record) => ({ ...record, isSample: false })),
+      meta: { live: false, persistent: true, source: 'Persistent internship database', count: pagination?.total ?? records.length },
+    };
   } catch {
     return {
-      records: internships,
+      records: internships.map((record) => ({ ...record, isSample: true })),
       meta: {
         live: false,
         fallback: true,
@@ -25,5 +36,20 @@ export async function loadInternships(fetchImpl = fetch) {
         count: internships.length,
       },
     };
+  }
+}
+
+export async function loadInternshipDetail(id, fetchImpl = fetch) {
+  if (!id) return null;
+  try {
+    const response = await fetchImpl(`/api/internships/${encodeURIComponent(id)}`, { headers: { accept: 'application/json' } });
+    if (response.status === 404) return null;
+    if (!response.ok) throw new Error(`Internship API returned HTTP ${response.status}`);
+    const payload = await response.json();
+    if (!payload?.data) throw new Error('Internship API returned no record');
+    return { ...payload.data, isSample: false };
+  } catch {
+    const supplied = internships.find((record) => record.id === id);
+    return supplied ? { ...supplied, isSample: true } : null;
   }
 }

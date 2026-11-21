@@ -2,13 +2,19 @@ services:
   - type: web
     name: internship-board-api
     runtime: node
-    plan: free
+    plan: 0.5c-512mb
     buildCommand: npm install --ignore-scripts
     startCommand: npm run start:api
     healthCheckPath: /health
     autoDeployTrigger: commit
     envVars:
       - key: NODE_VERSION
-        value: 22
+        value: 22.13.0
+      - key: DATABASE_PATH
+        value: /var/data/internships.db
       - key: ALLOWED_ORIGINS
-      value: https://internship-board-nu.vercel.app,http://localhost:3000,http://127.0.0.1:3000
+        value: https://internship-board-nu.vercel.app,http://localhost:3000,http://127.0.0.1:3000
+    disk:
+      name: internship-data
+      mountPath: /var/data
+      sizeGB: 1
