@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   filterInternships,
+  getSourceLabel,
   getRecordUrl,
   getDetailsUrl,
   isSafeExternalUrl,
@@ -93,11 +94,13 @@ test('loads paginated persistent API records and falls back to supplied samples 
   assert.equal(loaded.meta.live, false);
   assert.equal(loaded.meta.persistent, true);
   assert.equal(loaded.meta.count, 1);
+  assert.equal(loaded.records[0].isSample, false);
 
   const fallback = await loadInternships(async () => { throw new Error('offline'); });
   assert.equal(fallback.records.length, fallbackInternships.length);
   assert.equal(fallback.meta.live, false);
   assert.equal(fallback.meta.fallback, true);
+  assert.equal(fallback.records[0].isSample, true);
 });
 
 test('loads persistent detail records and falls back only for supplied IDs', async () => {
@@ -106,11 +109,19 @@ test('loads persistent detail records and falls back only for supplied IDs', asy
     json: async () => ({ data: { ...records[0], id: 'INT-201' } }),
   }));
   assert.equal(persistent.id, 'INT-201');
+  assert.equal(persistent.isSample, false);
 
   const supplied = await loadInternshipDetail('INT-101', async () => { throw new Error('offline'); });
   assert.equal(supplied.title, 'Frontend Intern');
+  assert.equal(supplied.isSample, true);
   const missing = await loadInternshipDetail('INT-101', async () => ({ ok: false, status: 404 }));
   assert.equal(missing, null);
+});
+
+test('labels live, database, and fallback records according to their real source', () => {
+  assert.equal(getSourceLabel({ isLive: true, source: 'Greenhouse' }), 'Live · Greenhouse');
+  assert.equal(getSourceLabel({ isSample: true }), 'Supplied sample record');
+  assert.equal(getSourceLabel({}), 'Project database record');
 });
 
 test('accepts an authoritative empty database without substituting seed records', async () => {

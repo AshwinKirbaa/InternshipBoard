@@ -1,6 +1,7 @@
 import { createDatabase, seedDatabase } from './db.js';
 
 const db = createDatabase();
-seedDatabase(db);
+const overwrite = process.argv.includes('--reset');
+seedDatabase(db, { overwrite });
 db.close();
-console.log('Seeded 5 internship records.');
+console.log(overwrite ? 'Reset 5 internship seed records.' : 'Added any missing internship seed records.');

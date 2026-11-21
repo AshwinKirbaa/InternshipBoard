@@ -41,6 +41,18 @@ test('creates the schema and seeds the five supplied internships idempotently', 
   assert.deepEqual(result.items[0].skills, ['HTML', 'CSS', 'JavaScript']);
 });
 
+test('repeat seeding preserves edits unless reset is explicitly requested', () => {
+  const db = memoryDatabase();
+  seedDatabase(db);
+  updateInternship(db, 'INT-101', { title: 'Edited Frontend Internship' });
+
+  seedDatabase(db);
+  assert.equal(getInternship(db, 'INT-101').title, 'Edited Frontend Internship');
+
+  seedDatabase(db, { overwrite: true });
+  assert.equal(getInternship(db, 'INT-101').title, 'Frontend Intern');
+});
+
 test('paginates records in deterministic ID order', () => {
   const db = memoryDatabase();
   seedDatabase(db);

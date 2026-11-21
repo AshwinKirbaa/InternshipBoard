@@ -23,12 +23,12 @@ export async function loadInternships(fetchImpl = fetch) {
       page += 1;
     } while (pagination?.hasNextPage);
     return {
-      records,
+      records: records.map((record) => ({ ...record, isSample: false })),
       meta: { live: false, persistent: true, source: 'Persistent internship database', count: pagination?.total ?? records.length },
     };
   } catch {
     return {
-      records: internships,
+      records: internships.map((record) => ({ ...record, isSample: true })),
       meta: {
         live: false,
         fallback: true,
@@ -47,8 +47,9 @@ export async function loadInternshipDetail(id, fetchImpl = fetch) {
     if (!response.ok) throw new Error(`Internship API returned HTTP ${response.status}`);
     const payload = await response.json();
     if (!payload?.data) throw new Error('Internship API returned no record');
-    return payload.data;
+    return { ...payload.data, isSample: false };
   } catch {
-    return internships.find((record) => record.id === id) || null;
+    const supplied = internships.find((record) => record.id === id);
+    return supplied ? { ...supplied, isSample: true } : null;
   }
 }

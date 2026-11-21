@@ -13,6 +13,7 @@
     "start": "node backend/server.js",
     "start:api": "node backend/server.js",
     "db:seed": "node backend/seed.js",
+    "db:seed:reset": "node backend/seed.js --reset",
     "serve": "npx --yes serve ."
   },
   "dependencies": {

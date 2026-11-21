@@ -68,6 +68,8 @@ There is no frontend framework, CSS framework, or build step.
 
 3. Open <http://localhost:10000>. Express serves both the frontend and `/api`, so records created through the API appear in the board without a development proxy.
 
+`npm run db:seed` only inserts missing seed IDs and preserves edits. To restore the five supplied records to their original values, run `npm run db:seed:reset` explicitly.
+
 Copy `.env.example` to `.env` if you want a local reference, then set values in your shell or hosting provider. The app reads `PORT`, `DATABASE_PATH`, and `ALLOWED_ORIGINS`; it intentionally does not load `.env` files automatically.
 
 ## Data model

@@ -44,9 +44,16 @@ export function normalizeInternship(record) {
     source: cleanText(record.source),
     sourceUrl: isSafeExternalUrl(record.sourceUrl) ? record.sourceUrl : '',
     isLive: record.isLive === true,
+    isSample: record.isSample === true,
   };
 
   return normalized;
+}
+
+export function getSourceLabel(record) {
+  if (record?.isLive) return `Live · ${record.source || 'Official source'}`;
+  if (record?.isSample) return 'Supplied sample record';
+  return 'Project database record';
 }
 
 export function filterInternships(records, query = '', domain = 'all', mode = 'all', skill = 'all') {
@@ -124,7 +131,7 @@ export function createInternshipCard(record) {
   const openingText = `${record.openings} ${record.openings === 1 ? 'opening' : 'openings'}`;
   const openings = createElement('div', 'openings-count');
   openings.append(createIcon('M12 3v18M3 12h18'), createElement('strong', '', openingText));
-  const sourceText = record.isLive ? `Live · ${record.source || 'Official source'}` : 'Supplied sample record';
+  const sourceText = getSourceLabel(record);
   footer.append(openings, createElement('span', `source-label${record.isLive ? ' is-live' : ''}`, sourceText));
   card.append(top, meta, skillsBlock);
   if (description) card.append(description);

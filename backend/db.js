@@ -86,10 +86,11 @@ export function deleteInternship(db, id) {
   return db.prepare('DELETE FROM internships WHERE id = ?').run(id).changes > 0;
 }
 
-export function seedDatabase(db) {
+export function seedDatabase(db, { overwrite = false } = {}) {
   db.exec('BEGIN');
   try {
-    const insert = db.prepare(`INSERT OR REPLACE INTO internships
+    const conflictAction = overwrite ? 'REPLACE' : 'IGNORE';
+    const insert = db.prepare(`INSERT OR ${conflictAction} INTO internships
       (id, title, domain, mode, location, skills, openings, duration_weeks, applications_open)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
     for (const item of seedInternships) {
