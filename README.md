@@ -112,6 +112,10 @@ The browser script verifies the EdVyro 360px portfolio width plus all five proje
 
 The frontend is deployed as a static Vercel project. Requests under `/api/*` are rewritten to the Render web service. The included `render.yaml` defines the dependency-free Node API, its health check, runtime, and allowed browser origins.
 
+- Production site: <https://internship-board-nu.vercel.app/>
+- Live API: <https://internship-board-api-3497.onrender.com/api/internships>
+- API health: <https://internship-board-api-3497.onrender.com/health>
+
 Render commands:
 
 - Build: `npm install --ignore-scripts`
