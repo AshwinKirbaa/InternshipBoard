@@ -17,6 +17,13 @@ test('HTML exposes required landmarks, labels, controls, and live status', async
   ]) assert.ok(html.includes(fragment), `missing ${fragment}`);
 });
 
+test('internship details page exposes an accessible record view and return path', async () => {
+  const html = await readFile(new URL('../internship.html', import.meta.url), 'utf8');
+  for (const fragment of ['id="detail-title"', 'id="detail-status"', 'id="detail-skills"', 'href="index.html#internships"', 'js/details.js']) {
+    assert.ok(html.includes(fragment), `missing ${fragment}`);
+  }
+});
+
 test('application rendering exposes skills and openings without unsupported application actions', async () => {
   const source = await readFile(new URL('../js/app.js', import.meta.url), 'utf8');
   for (const fragment of [

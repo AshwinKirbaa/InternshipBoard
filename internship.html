@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Review the details of a supplied sample internship record.">
+  <meta name="theme-color" content="#0b1f3a">
+  <title>Internship details — Internship Board</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script type="module" src="js/details.js"></script>
+</head>
+<body class="detail-page">
+  <a class="skip-link" href="#detail-content">Skip to internship details</a>
+  <header class="site-header">
+    <div class="shell header-inner">
+      <a class="brand" href="index.html" aria-label="Internship Board home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false"><path d="M7 7V5.8A2.8 2.8 0 0 1 9.8 3h4.4A2.8 2.8 0 0 1 17 5.8V7m-12 4h14M6 7h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm4 4v2h4v-2"/></svg>
+        </span>
+        <span>Internship<span>Board</span></span>
+      </a>
+      <a class="detail-header-link" href="index.html#internships">All internships</a>
+    </div>
+  </header>
+
+  <main id="detail-content" class="detail-main">
+    <div class="shell detail-shell">
+      <a class="back-link" href="index.html#internships">← Back to opportunities</a>
+      <p id="detail-status" class="sample-note" role="status"><span aria-hidden="true"></span> Supplied sample record</p>
+      <article id="detail-card" class="detail-card" hidden>
+        <div class="detail-heading">
+          <div>
+            <p id="detail-id" class="record-id"></p>
+            <h1 id="detail-title"></h1>
+          </div>
+          <span id="detail-domain" class="domain-badge"></span>
+        </div>
+        <dl class="detail-facts">
+          <div><dt>Location</dt><dd id="detail-location"></dd></div>
+          <div><dt>Work mode</dt><dd id="detail-mode"></dd></div>
+          <div><dt>Openings</dt><dd id="detail-openings"></dd></div>
+        </dl>
+        <section aria-labelledby="skills-title">
+          <h2 id="skills-title">Skills in this record</h2>
+          <ul id="detail-skills" class="skill-list"></ul>
+        </section>
+        <div class="detail-disclosure">
+          <strong>About this listing</strong>
+          <p>This is a fictional record supplied by EdVyro for the Responsive Internship Board milestone. No company or application URL was included, so this page does not invent one.</p>
+        </div>
+      </article>
+      <div id="detail-error" class="state-panel error-panel" role="alert" hidden>
+        <h1>Internship record not found</h1>
+        <p>The selected record is missing or no longer available in the supplied dataset.</p>
+        <a class="primary-button inline-button" href="index.html#internships">Return to all internships</a>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

@@ -158,6 +158,22 @@ await evaluate(`window.scrollTo(0, document.querySelector('#internships').offset
 await delay(100);
 await screenshot('search-filter-results.png');
 
+await evaluate(`document.querySelector('.internship-card-link').click()`);
+await delay(250);
+const detailState = await evaluate(`({
+  path: location.pathname,
+  id: document.querySelector('#detail-id')?.textContent,
+  title: document.querySelector('#detail-title')?.textContent,
+  visible: !document.querySelector('#detail-card')?.hidden
+})`);
+if (!detailState.path.endsWith('/internship.html') || detailState.id !== 'INT-101' || detailState.title !== 'Frontend Intern' || !detailState.visible) {
+  throw new Error(`Card details navigation failed: ${JSON.stringify(detailState)}`);
+}
+checks.push('card selection: opened INT-101 details page');
+await screenshot('internship-details.png');
+await send('Page.navigate', { url: `http://127.0.0.1:${port}/` });
+await delay(650);
+
 const empty = await evaluate(`(() => {
   const search = document.querySelector('#search-input');
   search.value = 'no-such-internship-xyz';

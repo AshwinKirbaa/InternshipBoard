@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   filterInternships,
+  getDetailsUrl,
   isSafeExternalUrl,
   normalizeInternship,
 } from '../js/app.js';
@@ -67,4 +68,9 @@ test('only accepts HTTP(S) application URLs', () => {
   assert.equal(isSafeExternalUrl('javascript:alert(1)'), false);
   assert.equal(isSafeExternalUrl('/relative'), false);
   assert.equal(isSafeExternalUrl(undefined), false);
+});
+
+test('builds an encoded internal details URL for a record', () => {
+  assert.equal(getDetailsUrl('INT-101'), 'internship.html?id=INT-101');
+  assert.equal(getDetailsUrl('INT 101/alpha'), 'internship.html?id=INT%20101%2Falpha');
 });

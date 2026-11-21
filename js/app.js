@@ -15,6 +15,10 @@ export function isSafeExternalUrl(value) {
   }
 }
 
+export function getDetailsUrl(recordId) {
+  return `internship.html?id=${encodeURIComponent(cleanText(recordId))}`;
+}
+
 export function normalizeInternship(record) {
   if (!record || typeof record !== 'object') return null;
 
@@ -110,7 +114,11 @@ export function createInternshipCard(record) {
   openings.append(createIcon('M12 3v18M3 12h18'), createElement('strong', '', openingText));
   footer.append(openings, createElement('span', 'source-label', 'Supplied sample record'));
   card.append(top, meta, skillsBlock, footer);
-  return card;
+  const link = createElement('a', 'internship-card-link');
+  link.href = getDetailsUrl(record.id);
+  link.setAttribute('aria-label', `View details for ${record.title}`);
+  link.append(card);
+  return link;
 }
 
 let sourceRecords = [];

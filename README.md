@@ -7,6 +7,7 @@ Internship Board is a responsive, accessible internship discovery website built 
 - Real-time search across title, location, domain, work mode, and skills
 - Domain, work-mode, and skill filters that combine with the search query
 - All five records from the official EdVyro internship seed
+- Selectable cards with an internal, shareable details page for each supplied record
 - Responsive one-, two-, and three-column layouts
 - Loading, empty, and recoverable error states
 - Honest handling of source data with no invented application links
@@ -64,6 +65,8 @@ You can also use any static-file server, such as VS Code Live Server. Opening `i
 ## Search and filtering
 
 Typing in the search field updates results immediately. Search is case-insensitive, trims extra whitespace, and matches title, location, domain, work mode, and skills. Domain, mode, and skill filters intersect with the current query. Use **Clear filters** in the toolbar or empty state to restore every listing.
+
+Selecting any internship card opens its dedicated details page. Because the supplied records contain no company or application URL, the details page clearly identifies the listing as fictional rather than inventing an external application destination.
 
 ## Accessibility
 
