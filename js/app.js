@@ -235,7 +235,6 @@ async function initializeData() {
     const { loadInternships } = await import('./data.js');
     const loaded = await loadInternships();
     sourceRecords = loaded.records.map(normalizeInternship).filter(Boolean);
-    if (!sourceRecords.length) throw new Error('No valid internships were returned');
     const domains = new Set(sourceRecords.map(({ domain }) => domain));
     document.querySelector('#opportunity-total').textContent = String(sourceRecords.length);
     document.querySelector('#domain-total').textContent = String(domains.size);

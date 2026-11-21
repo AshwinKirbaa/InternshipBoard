@@ -81,7 +81,8 @@ export function validateInternship(input, { partial = false, requireId = false }
 export function parsePagination(query) {
   const page = query.page === undefined ? 1 : Number(query.page);
   const limit = query.limit === undefined ? 10 : Number(query.limit);
-  if (!Number.isInteger(page) || page < 1 || !Number.isInteger(limit) || limit < 1 || limit > 100) {
+  const offset = (page - 1) * limit;
+  if (!Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger(limit) || limit < 1 || limit > 100 || !Number.isSafeInteger(offset)) {
     return { error: 'page must be a positive integer and limit must be an integer between 1 and 100' };
   }
   return { value: { page, limit } };

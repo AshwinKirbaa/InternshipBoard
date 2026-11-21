@@ -1,4 +1,6 @@
 import express from 'express';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   createInternship,
   deleteInternship,
@@ -17,7 +19,9 @@ function allowedOrigins() {
   return new Set((process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://127.0.0.1:3000').split(',').map((value) => value.trim()).filter(Boolean));
 }
 
-export function createApp({ db }) {
+const defaultStaticRoot = fileURLToPath(new URL('../', import.meta.url));
+
+export function createApp({ db, staticRoot = defaultStaticRoot }) {
   const app = express();
   app.disable('x-powered-by');
 
@@ -93,10 +97,19 @@ export function createApp({ db }) {
     return response.status(204).end();
   });
 
+  app.use('/css', express.static(path.join(staticRoot, 'css')));
+  app.use('/js', express.static(path.join(staticRoot, 'js')));
+  app.get('/', express.static(staticRoot, { index: 'index.html' }));
+  app.get(['/index.html', '/internship.html'], express.static(staticRoot));
   app.use((request, response) => response.status(404).json(errorBody('NOT_FOUND', 'Route not found')));
   app.use((error, _request, response, _next) => {
     if (error instanceof SyntaxError && error.status === 400 && 'body' in error) {
       return response.status(400).json(errorBody('INVALID_JSON', 'Request body contains malformed JSON'));
+    }
+    if (error.status === 413) return response.status(413).json(errorBody('PAYLOAD_TOO_LARGE', 'Request body exceeds the 100 KB limit'));
+    if (error.status === 415) return response.status(415).json(errorBody('UNSUPPORTED_MEDIA_TYPE', 'Request body encoding is not supported'));
+    if (Number.isInteger(error.status) && error.status >= 400 && error.status < 500) {
+      return response.status(error.status).json(errorBody('BAD_REQUEST', error.message || 'The request could not be processed'));
     }
     console.error(error);
     return response.status(500).json(errorBody('INTERNAL_ERROR', 'An unexpected error occurred'));

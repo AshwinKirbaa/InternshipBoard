@@ -20,7 +20,7 @@ Internship Board is a responsive full-stack portfolio project. Its Express REST 
 
 - Semantic HTML5 and mobile-first CSS
 - Vanilla JavaScript ES modules
-- Node.js 22.5 or newer
+- Node.js 22.13 or newer
 - Express 5
 - SQLite through Node.js's built-in `node:sqlite` module
 - Node.js built-in test runner
@@ -60,19 +60,13 @@ There is no frontend framework, CSS framework, or build step.
    npm run db:seed
    ```
 
-2. Start the API (default: `http://localhost:10000`):
+2. Start the full application:
 
    ```powershell
    npm start
    ```
 
-3. In a second terminal, start the static frontend:
-
-   ```powershell
-   npm run serve
-   ```
-
-4. Open the address printed by the static server, normally `http://localhost:3000`.
+3. Open <http://localhost:10000>. Express serves both the frontend and `/api`, so records created through the API appear in the board without a development proxy.
 
 Copy `.env.example` to `.env` if you want a local reference, then set values in your shell or hosting provider. The app reads `PORT`, `DATABASE_PATH`, and `ALLOWED_ORIGINS`; it intentionally does not load `.env` files automatically.
 
@@ -149,7 +143,7 @@ npm run test:browser
 
 The static frontend can remain on Vercel with `/api/*` rewritten to the Render service. The included `render.yaml` starts the Express API and configures its health check and allowed browser origin.
 
-SQLite persists locally. A hosted Render deployment needs a persistent disk and `DATABASE_PATH` pointed at that disk's mount path; do not rely on Render's ephemeral filesystem for durable production writes. Persistent disks require an eligible Render plan, so confirm pricing before enabling one.
+SQLite persists locally. The included Render Blueprint uses a 1 GB persistent disk mounted at `/var/data` and a `DATABASE_PATH` on that disk. This requires an eligible paid Render plan; review current pricing before applying the Blueprint.
 
 Current project URLs from the earlier milestone:
 

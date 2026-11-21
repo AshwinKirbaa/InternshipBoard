@@ -10,13 +10,21 @@ export const internships = [
 
 export async function loadInternships(fetchImpl = fetch) {
   try {
-    const response = await fetchImpl('/api/internships?limit=100', { headers: { accept: 'application/json' } });
-    if (!response.ok) throw new Error(`Internship API returned HTTP ${response.status}`);
-    const payload = await response.json();
-    if (!payload || !Array.isArray(payload.data) || !payload.data.length) throw new Error('Internship API returned no internships');
+    const records = [];
+    let page = 1;
+    let pagination;
+    do {
+      const response = await fetchImpl(`/api/internships?limit=100&page=${page}`, { headers: { accept: 'application/json' } });
+      if (!response.ok) throw new Error(`Internship API returned HTTP ${response.status}`);
+      const payload = await response.json();
+      if (!payload || !Array.isArray(payload.data)) throw new Error('Internship API returned an invalid collection');
+      records.push(...payload.data);
+      pagination = payload.pagination;
+      page += 1;
+    } while (pagination?.hasNextPage);
     return {
-      records: payload.data,
-      meta: { live: false, persistent: true, source: 'Persistent internship database', count: payload.pagination?.total ?? payload.data.length },
+      records,
+      meta: { live: false, persistent: true, source: 'Persistent internship database', count: pagination?.total ?? records.length },
     };
   } catch {
     return {
@@ -35,6 +43,7 @@ export async function loadInternshipDetail(id, fetchImpl = fetch) {
   if (!id) return null;
   try {
     const response = await fetchImpl(`/api/internships/${encodeURIComponent(id)}`, { headers: { accept: 'application/json' } });
+    if (response.status === 404) return null;
     if (!response.ok) throw new Error(`Internship API returned HTTP ${response.status}`);
     const payload = await response.json();
     if (!payload?.data) throw new Error('Internship API returned no record');

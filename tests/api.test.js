@@ -45,6 +45,19 @@ test('lists seeded internships with pagination metadata', async () => {
   });
 });
 
+test('serves the frontend from the API origin for a working local setup', async () => {
+  await withApi(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/`);
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get('content-type'), /text\/html/);
+    assert.match(await response.text(), /<title>Internship Board/);
+
+    const privateFile = await fetch(`${baseUrl}/package.json`);
+    assert.equal(privateFile.status, 404);
+    assert.equal((await privateFile.json()).error.code, 'NOT_FOUND');
+  });
+});
+
 test('returns internship detail and a consistent missing-record error', async () => {
   await withApi(async (baseUrl) => {
     const found = await jsonRequest(`${baseUrl}/api/internships/INT-101`);
@@ -126,11 +139,31 @@ test('rejects invalid records and empty or invalid PATCH bodies with field detai
 
 test('rejects invalid pagination values', async () => {
   await withApi(async (baseUrl) => {
-    for (const query of ['page=0', 'page=-1', 'page=1.5', 'limit=0', 'limit=101', 'limit=abc']) {
+    for (const query of ['page=0', 'page=-1', 'page=1.5', 'page=9999999999999999999999', 'limit=0', 'limit=101', 'limit=abc']) {
       const result = await jsonRequest(`${baseUrl}/api/internships?${query}`);
       assert.equal(result.response.status, 400, query);
       assert.equal(result.body.error.code, 'INVALID_PAGINATION');
     }
+  });
+});
+
+test('returns JSON client errors for oversized bodies and unsupported charsets', async () => {
+  await withApi(async (baseUrl) => {
+    const oversized = await jsonRequest(`${baseUrl}/api/internships`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ title: 'x'.repeat(110_000) }),
+    });
+    assert.equal(oversized.response.status, 413);
+    assert.equal(oversized.body.error.code, 'PAYLOAD_TOO_LARGE');
+
+    const unsupported = await jsonRequest(`${baseUrl}/api/internships`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json; charset=iso-8859-1' },
+      body: '{}',
+    });
+    assert.equal(unsupported.response.status, 415);
+    assert.equal(unsupported.body.error.code, 'UNSUPPORTED_MEDIA_TYPE');
   });
 });
 

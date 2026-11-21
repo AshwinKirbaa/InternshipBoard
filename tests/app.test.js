@@ -109,6 +109,29 @@ test('loads persistent detail records and falls back only for supplied IDs', asy
 
   const supplied = await loadInternshipDetail('INT-101', async () => { throw new Error('offline'); });
   assert.equal(supplied.title, 'Frontend Intern');
-  const missing = await loadInternshipDetail('INT-999', async () => ({ ok: false, status: 404 }));
+  const missing = await loadInternshipDetail('INT-101', async () => ({ ok: false, status: 404 }));
   assert.equal(missing, null);
+});
+
+test('accepts an authoritative empty database without substituting seed records', async () => {
+  const loaded = await loadInternships(async () => ({
+    ok: true,
+    json: async () => ({ data: [], pagination: { page: 1, limit: 100, total: 0, totalPages: 0, hasNextPage: false, hasPreviousPage: false } }),
+  }));
+  assert.deepEqual(loaded.records, []);
+  assert.equal(loaded.meta.persistent, true);
+  assert.equal(loaded.meta.count, 0);
+});
+
+test('loads every page so frontend search and totals include records after 100', async () => {
+  const calls = [];
+  const firstPage = Array.from({ length: 100 }, (_, index) => ({ ...records[0], id: `INT-${String(index + 1).padStart(3, '0')}` }));
+  const loaded = await loadInternships(async (url) => {
+    calls.push(url);
+    return url.includes('page=2')
+      ? { ok: true, json: async () => ({ data: [{ ...records[0], id: 'INT-101' }], pagination: { page: 2, limit: 100, total: 101, totalPages: 2, hasNextPage: false, hasPreviousPage: true } }) }
+      : { ok: true, json: async () => ({ data: firstPage, pagination: { page: 1, limit: 100, total: 101, totalPages: 2, hasNextPage: true, hasPreviousPage: false } }) };
+  });
+  assert.equal(loaded.records.length, 101);
+  assert.deepEqual(calls, ['/api/internships?limit=100&page=1', '/api/internships?limit=100&page=2']);
 });
