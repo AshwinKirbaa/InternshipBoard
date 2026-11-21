@@ -145,6 +145,8 @@ npm run test:browser
 
 The static frontend can remain on Vercel with `/api/*` rewritten to the Render service. The included `render.yaml` starts the Express API and configures its health check and allowed browser origin.
 
+The hosted API inserts any missing supplied seed records before each start. Existing rows and edits are preserved.
+
 SQLite persists locally. The included Render Blueprint uses a 1 GB persistent disk mounted at `/var/data` and a `DATABASE_PATH` on that disk. This requires an eligible paid Render plan; review current pricing before applying the Blueprint.
 
 Current project URLs from the earlier milestone:
