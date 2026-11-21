@@ -37,6 +37,15 @@ test('internship details page exposes an accessible record view and return path'
   }
 });
 
+test('both pages declare the branded SVG favicon', async () => {
+  const home = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const details = await readFile(new URL('../internship.html', import.meta.url), 'utf8');
+  const favicon = await readFile(new URL('../assets/favicon.svg', import.meta.url), 'utf8');
+  for (const html of [home, details]) assert.ok(html.includes('rel="icon" href="assets/favicon.svg" type="image/svg+xml"'));
+  assert.match(favicon, /<svg[^>]+viewBox="0 0 64 64"/);
+  assert.match(favicon, /<title>Internship Board<\/title>/);
+});
+
 test('application rendering exposes skills and openings without unsupported application actions', async () => {
   const source = await readFile(new URL('../js/app.js', import.meta.url), 'utf8');
   for (const fragment of [

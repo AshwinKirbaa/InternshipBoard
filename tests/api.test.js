@@ -52,6 +52,10 @@ test('serves the frontend from the API origin for a working local setup', async 
     assert.match(response.headers.get('content-type'), /text\/html/);
     assert.match(await response.text(), /<title>Internship Board/);
 
+    const favicon = await fetch(`${baseUrl}/assets/favicon.svg`);
+    assert.equal(favicon.status, 200);
+    assert.match(favicon.headers.get('content-type'), /image\/svg\+xml/);
+
     const privateFile = await fetch(`${baseUrl}/package.json`);
     assert.equal(privateFile.status, 404);
     assert.equal((await privateFile.json()).error.code, 'NOT_FOUND');
