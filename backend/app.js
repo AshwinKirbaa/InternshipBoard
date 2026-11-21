@@ -26,6 +26,7 @@ export function createApp({ db, staticRoot = defaultStaticRoot, liveInternships 
   app.disable('x-powered-by');
 
   app.use((request, response, next) => {
+    if (!request.path.startsWith('/api/')) return next();
     const origin = request.headers.origin;
     if (!origin) return next();
     if (!allowedOrigins().has(origin)) return response.status(403).json(errorBody('ORIGIN_NOT_ALLOWED', 'Origin not allowed'));

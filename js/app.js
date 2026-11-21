@@ -298,6 +298,7 @@ function initializeApp() {
   initializeData();
 }
 
-if (typeof document !== 'undefined') {
-  document.addEventListener('DOMContentLoaded', initializeApp);
+if (typeof document !== 'undefined' && document.querySelector('#search-form')) {
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initializeApp, { once: true });
+  else initializeApp();
 }
