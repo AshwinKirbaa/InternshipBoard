@@ -80,8 +80,6 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round
 .hero { position: relative; overflow: hidden; padding: clamp(3rem, 8vw, 6.5rem) 0 clamp(4rem, 9vw, 7rem); background: var(--blue-pale); }
 .hero::after { content: ""; position: absolute; right: -8rem; bottom: -16rem; width: 30rem; height: 30rem; border: 5rem solid rgba(23,105,224,.07); border-radius: 50%; pointer-events: none; }
 .hero-grid { position: relative; z-index: 1; display: grid; gap: 2rem; }
-.sample-note { display: flex; align-items: center; gap: .5rem; margin: 0 0 1rem; color: var(--blue-dark); font-size: .84rem; font-weight: 750; letter-spacing: .02em; }
-.sample-note span { width: .55rem; height: .55rem; background: var(--green); border-radius: 50%; box-shadow: 0 0 0 4px rgba(22,115,74,.12); }
 h1, h2, h3, p { margin-top: 0; }
 h1 { max-width: 10ch; margin-bottom: 1rem; font-size: clamp(2.65rem, 9vw, 5.5rem); line-height: .98; letter-spacing: -.04em; text-wrap: balance; }
 .hero-subtitle { max-width: 63ch; margin-bottom: 1.6rem; color: var(--ink-soft); font-size: clamp(1rem, 2vw, 1.16rem); }
@@ -107,8 +105,6 @@ h1 { max-width: 10ch; margin-bottom: 1rem; font-size: clamp(2.65rem, 9vw, 5.5rem
 .summary-disclosure { margin: 1rem 0 0; color: #b9cbe0; font-size: .73rem; line-height: 1.5; }
 
 .results-section { position: relative; padding: 4rem 0 5rem; background: var(--white); }
-.route-line { position: absolute; top: -2rem; left: 50%; width: 2px; height: 4rem; background: var(--blue); }
-.route-line::after { content: ""; position: absolute; bottom: 0; left: 50%; width: .7rem; height: .7rem; background: var(--white); border: 3px solid var(--blue); border-radius: 50%; transform: translate(-50%, 50%); }
 .results-toolbar { display: grid; gap: 1.25rem; margin-bottom: 2rem; }
 .results-toolbar h2 { margin-bottom: .15rem; font-size: clamp(1.85rem, 4vw, 2.6rem); line-height: 1.1; letter-spacing: -.035em; }
 #results-status { margin: 0; color: var(--ink-soft); }

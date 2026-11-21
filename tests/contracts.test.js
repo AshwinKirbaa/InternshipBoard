@@ -17,6 +17,19 @@ test('HTML exposes required landmarks, labels, controls, and live status', async
   ]) assert.ok(html.includes(fragment), `missing ${fragment}`);
 });
 
+test('hero and results omit the decorative status eyebrow and connector', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../css/styles.css', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../js/app.js', import.meta.url), 'utf8');
+
+  assert.equal(html.includes('sample-note'), false, 'live-status eyebrow should be removed');
+  assert.equal(css.includes('.sample-note'), false, 'live-status eyebrow styles should be removed');
+  assert.equal(html.includes('route-line'), false, 'results connector should be removed');
+  assert.equal(css.includes('.route-line'), false, 'results connector styles should be removed');
+  assert.equal(source.includes('data-source-label'), false, 'script should not reference the removed status label');
+  assert.ok(html.includes('summary-disclosure'), 'official-source disclosure should remain');
+});
+
 test('internship details page exposes an accessible record view and return path', async () => {
   const html = await readFile(new URL('../internship.html', import.meta.url), 'utf8');
   for (const fragment of ['id="detail-title"', 'id="detail-status"', 'id="detail-skills"', 'href="index.html#internships"', 'js/details.js']) {

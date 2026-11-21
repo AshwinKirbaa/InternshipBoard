@@ -241,7 +241,6 @@ async function initializeData() {
     document.querySelector('#domain-total').textContent = String(domains.size);
     document.querySelector('#remote-total').textContent = String(sourceRecords.filter(({ mode }) => mode === 'Remote').length);
     document.querySelector('#openings-total').textContent = String(sourceRecords.reduce((total, { openings }) => total + openings, 0));
-    document.querySelector('#data-source-label').textContent = loaded.meta.live ? 'Live official openings' : 'EdVyro sample fallback';
     document.querySelector('#summary-disclosure').textContent = loaded.meta.live
       ? `Current openings aggregated from ${loaded.meta.boardsAvailable || 'available'} official employer job boards. Always verify requirements on the original posting.`
       : 'Live listings are temporarily unavailable. Showing the five fictional EdVyro records instead.';
