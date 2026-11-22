@@ -154,7 +154,7 @@ SQLite persists locally. The included Render Blueprint uses a 1 GB persistent di
 
 Current project URLs from the earlier milestone:
 
-- Frontend: <https://internship-board-nu.vercel.app/>
+- Frontend: <https://internship-board-two.vercel.app/>
 - API health: <https://internship-board-api-3497.onrender.com/health>
 
 ## Task 3: Secure Application Integration
