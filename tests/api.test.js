@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createApp } from '../backend/app.js';
-import { createDatabase, seedDatabase } from '../backend/db.js';
+import { createDatabase, getApplication, seedDatabase } from '../backend/db.js';
 
 const validRecord = {
   id: 'INT-201',
@@ -183,4 +183,166 @@ test('returns 400 for malformed JSON without terminating the server', async () =
     assert.equal(health.response.status, 200);
     assert.deepEqual(health.body, { status: 'ok', service: 'internship-board-api' });
   });
+});
+
+test('includes expected security headers on responses', async () => {
+  await withApi(async (baseUrl) => {
+    const apiRes = await fetch(`${baseUrl}/api/internships`);
+    assert.equal(apiRes.headers.get('x-content-type-options'), 'nosniff');
+    assert.equal(apiRes.headers.get('x-frame-options'), 'DENY');
+    assert.equal(apiRes.headers.get('referrer-policy'), 'no-referrer');
+    assert.ok(apiRes.headers.get('content-security-policy'));
+    assert.ok(apiRes.headers.get('permissions-policy'));
+    assert.equal(apiRes.headers.get('x-powered-by'), null);
+
+    const htmlRes = await fetch(`${baseUrl}/`);
+    assert.equal(htmlRes.headers.get('x-content-type-options'), 'nosniff');
+    assert.equal(htmlRes.headers.get('x-frame-options'), 'DENY');
+    assert.equal(htmlRes.headers.get('referrer-policy'), 'no-referrer');
+    assert.ok(htmlRes.headers.get('content-security-policy'));
+    assert.ok(htmlRes.headers.get('permissions-policy'));
+  });
+});
+
+test('submits valid application, returns minimal response, and stores data in DB', async () => {
+  let savedDb;
+  const db = createDatabase(':memory:');
+  seedDatabase(db);
+  const server = createApp({ db }).listen(0, '127.0.0.1');
+  await new Promise((resolve) => server.once('listening', resolve));
+  const baseUrl = `http://127.0.0.1:${server.address().port}`;
+
+  try {
+    const validApplication = {
+      internshipId: 'INT-101',
+      fullName: 'Alex Smith',
+      email: 'alex@example.com',
+      phone: '+1 555-0123',
+      coverNote: 'I would love to join your team as a frontend intern for the summer.',
+    };
+
+    const { response, body } = await jsonRequest(`${baseUrl}/api/applications`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(validApplication),
+    });
+
+    assert.equal(response.status, 201);
+    assert.ok(body.data.id);
+    assert.equal(body.data.internshipId, 'INT-101');
+    assert.ok(body.data.submittedAt);
+    assert.equal(body.data.email, undefined);
+    assert.equal(body.data.phone, undefined);
+    assert.equal(body.data.coverNote, undefined);
+    assert.equal(body.data.fullName, undefined);
+
+    const stored = getApplication(db, body.data.id);
+    assert.ok(stored);
+    assert.equal(stored.fullName, 'Alex Smith');
+    assert.equal(stored.email, 'alex@example.com');
+    assert.equal(stored.phone, '+1 555-0123');
+    assert.equal(stored.coverNote, validApplication.coverNote);
+
+    // Verify there is no public GET endpoint for applications
+    const getRes = await fetch(`${baseUrl}/api/applications`);
+    assert.equal(getRes.status, 404);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    db.close();
+  }
+});
+
+test('rejects application for nonexistent or closed internship', async () => {
+  await withApi(async (baseUrl) => {
+    const missing = await jsonRequest(`${baseUrl}/api/applications`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        internshipId: 'INT-999',
+        fullName: 'Alex Smith',
+        email: 'alex@example.com',
+        coverNote: 'A long enough cover note for the application attempt.',
+      }),
+    });
+    assert.equal(missing.response.status, 404);
+    assert.equal(missing.body.error.code, 'NOT_FOUND');
+
+    // Close INT-101
+    await jsonRequest(`${baseUrl}/api/internships/INT-101`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ applicationsOpen: false }),
+    });
+
+    const closed = await jsonRequest(`${baseUrl}/api/applications`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        internshipId: 'INT-101',
+        fullName: 'Alex Smith',
+        email: 'alex@example.com',
+        coverNote: 'A long enough cover note for the application attempt.',
+      }),
+    });
+    assert.equal(closed.response.status, 409);
+    assert.equal(closed.body.error.code, 'APPLICATIONS_CLOSED');
+  });
+});
+
+test('rate limits application submissions per IP and returns Retry-After without blocking GET', async () => {
+  const db = createDatabase(':memory:');
+  seedDatabase(db);
+  let currentTime = 100000;
+  const server = createApp({
+    db,
+    rateLimiterOptions: {
+      max: 2,
+      windowMs: 60 * 1000,
+      now: () => currentTime,
+    },
+  }).listen(0, '127.0.0.1');
+  await new Promise((resolve) => server.once('listening', resolve));
+  const baseUrl = `http://127.0.0.1:${server.address().port}`;
+
+  try {
+    const payload = {
+      internshipId: 'INT-101',
+      fullName: 'Alex Smith',
+      email: 'alex@example.com',
+      coverNote: 'A long enough cover note for the application attempt.',
+    };
+
+    // Submissions 1 and 2 succeed
+    const req1 = await jsonRequest(`${baseUrl}/api/applications`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload),
+    });
+    assert.equal(req1.response.status, 201);
+
+    const req2 = await jsonRequest(`${baseUrl}/api/applications`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload),
+    });
+    assert.equal(req2.response.status, 201);
+
+    // Submission 3 hits rate limit
+    const req3 = await jsonRequest(`${baseUrl}/api/applications`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload),
+    });
+    assert.equal(req3.response.status, 429);
+    assert.equal(req3.body.error.code, 'RATE_LIMITED');
+    assert.ok(req3.response.headers.get('retry-after'));
+
+    // Ordinary GET requests are not rate limited
+    const getRes = await jsonRequest(`${baseUrl}/api/internships`);
+    assert.equal(getRes.response.status, 200);
+
+    // After window expires, submissions are allowed again
+    currentTime += 61 * 1000;
+    const req4 = await jsonRequest(`${baseUrl}/api/applications`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload),
+    });
+    assert.equal(req4.response.status, 201);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    db.close();
+  }
 });

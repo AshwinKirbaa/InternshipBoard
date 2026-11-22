@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
 import { randomInt } from 'node:crypto';
 import { spawn } from 'node:child_process';
+import { createApp } from '../backend/app.js';
+import { createDatabase, seedDatabase } from '../backend/db.js';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const chromeCandidates = [
@@ -20,21 +22,11 @@ const outputDirectory = join(root, 'reports', 'screenshots');
 let port;
 const debugPort = randomInt(10000, 50000);
 
-const mime = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml' };
-const server = createServer(async (request, response) => {
-  try {
-    const requestPath = new URL(request.url, `http://127.0.0.1:${port}`).pathname;
-    const filePath = normalize(join(root, requestPath === '/' ? 'index.html' : requestPath));
-    if (!filePath.startsWith(normalize(root))) throw new Error('Invalid path');
-    const body = await readFile(filePath);
-    response.writeHead(200, { 'content-type': `${mime[extname(filePath)] || 'application/octet-stream'}; charset=utf-8` });
-    response.end(body);
-  } catch {
-    response.writeHead(404).end('Not found');
-  }
-});
-
-await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+const db = createDatabase(':memory:');
+seedDatabase(db);
+const app = createApp({ db, staticRoot: root });
+const server = app.listen(0, '127.0.0.1');
+await new Promise((resolve) => server.once('listening', resolve));
 port = server.address().port;
 await mkdir(outputDirectory, { recursive: true });
 const browserProfile = await mkdtemp(join(tmpdir(), 'internship-board-qa-'));
@@ -232,6 +224,7 @@ console.log(`Screenshots: ${outputDirectory}`);
 } finally {
   if (socket?.readyState === WebSocket.OPEN) socket.close();
   server.close();
+  db.close();
   if (chrome.exitCode === null) {
     await new Promise((resolve) => {
       chrome.once('exit', resolve);

@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  createApplication,
   createInternship,
   deleteInternship,
   getInternship,
@@ -9,7 +10,8 @@ import {
   replaceInternship,
   updateInternship,
 } from './db.js';
-import { parsePagination, validateInternship } from './validation.js';
+import { parsePagination, validateApplication, validateInternship } from './validation.js';
+import { createRateLimiter } from './rate-limiter.js';
 
 function errorBody(code, message, details) {
   return { error: { code, message, ...(details ? { details } : {}) } };
@@ -21,9 +23,26 @@ function allowedOrigins() {
 
 const defaultStaticRoot = fileURLToPath(new URL('../', import.meta.url));
 
-export function createApp({ db, staticRoot = defaultStaticRoot }) {
+export function createApp({ db, staticRoot = defaultStaticRoot, rateLimiterOptions, trustProxy = false }) {
   const app = express();
   app.disable('x-powered-by');
+
+  if (trustProxy || process.env.TRUST_PROXY) {
+    app.set('trust proxy', trustProxy || process.env.TRUST_PROXY);
+  }
+
+  app.use((_request, response, next) => {
+    response.set({
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'DENY',
+      'Referrer-Policy': 'no-referrer',
+      'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';",
+      'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+    });
+    next();
+  });
+
+  const applicationLimiter = createRateLimiter(rateLimiterOptions);
 
   app.use((request, response, next) => {
     const origin = request.headers.origin;
@@ -95,6 +114,24 @@ export function createApp({ db, staticRoot = defaultStaticRoot }) {
   app.delete('/api/internships/:id', (request, response) => {
     if (!deleteInternship(db, request.params.id)) return response.status(404).json(errorBody('NOT_FOUND', `Internship ${request.params.id} was not found`));
     return response.status(204).end();
+  });
+
+  app.post('/api/applications', applicationLimiter, (request, response) => {
+    const validation = validateApplication(request.body);
+    if (validation.errors) return response.status(422).json(errorBody('VALIDATION_ERROR', 'Application data is invalid', validation.errors));
+
+    const internship = getInternship(db, validation.value.internshipId);
+    if (!internship) return response.status(404).json(errorBody('NOT_FOUND', `Internship ${validation.value.internshipId} was not found`));
+    if (!internship.applicationsOpen) return response.status(409).json(errorBody('APPLICATIONS_CLOSED', 'Applications are closed for this internship'));
+
+    const application = createApplication(db, validation.value);
+    return response.status(201).json({
+      data: {
+        id: application.id,
+        internshipId: application.internshipId,
+        submittedAt: application.submittedAt,
+      },
+    });
   });
 
   app.use('/css', express.static(path.join(staticRoot, 'css')));

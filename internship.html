@@ -50,6 +50,44 @@
           <p id="detail-disclosure">Record source information is loading.</p>
         </div>
       </article>
+
+      <section id="application-section" class="application-section" aria-labelledby="application-heading" hidden>
+        <div class="application-card">
+          <h2 id="application-heading">Apply for this internship</h2>
+          <p class="application-subtitle">Submit your application directly for this opening.</p>
+          <div id="application-closed-notice" class="application-closed-notice" role="status" hidden>
+            <p><strong>Applications are currently closed for this position.</strong> New applications cannot be accepted at this time.</p>
+          </div>
+          <form id="application-form" class="application-form" novalidate>
+            <input type="hidden" id="app-internship-id" name="internshipId" value="">
+            <div class="form-group">
+              <label for="app-full-name">Full name <span class="required-indicator" aria-hidden="true">*</span></label>
+              <input type="text" id="app-full-name" name="fullName" required minlength="2" maxlength="100" autocomplete="name" aria-describedby="app-full-name-error">
+              <p id="app-full-name-error" class="field-error" role="alert" aria-live="polite" hidden></p>
+            </div>
+            <div class="form-group">
+              <label for="app-email">Email address <span class="required-indicator" aria-hidden="true">*</span></label>
+              <input type="email" id="app-email" name="email" required maxlength="254" autocomplete="email" aria-describedby="app-email-error">
+              <p id="app-email-error" class="field-error" role="alert" aria-live="polite" hidden></p>
+            </div>
+            <div class="form-group">
+              <label for="app-phone">Phone number <span class="optional-indicator">(optional)</span></label>
+              <input type="tel" id="app-phone" name="phone" maxlength="25" autocomplete="tel" aria-describedby="app-phone-error">
+              <p id="app-phone-error" class="field-error" role="alert" aria-live="polite" hidden></p>
+            </div>
+            <div class="form-group">
+              <label for="app-cover-note">Cover note <span class="required-indicator" aria-hidden="true">*</span></label>
+              <textarea id="app-cover-note" name="coverNote" required minlength="20" maxlength="2000" rows="5" aria-describedby="app-cover-note-error"></textarea>
+              <p id="app-cover-note-error" class="field-error" role="alert" aria-live="polite" hidden></p>
+            </div>
+            <div id="app-form-status" class="form-status" role="status" aria-live="polite"></div>
+            <div class="form-actions">
+              <button type="submit" id="app-submit-button" class="primary-button">Submit application</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
       <div id="detail-error" class="state-panel error-panel" role="alert" hidden>
         <h1>Internship record not found</h1>
         <p>The selected record is missing or no longer available.</p>

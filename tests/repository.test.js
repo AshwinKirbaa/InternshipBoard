@@ -2,9 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  createApplication,
   createDatabase,
   createInternship,
   deleteInternship,
+  getApplication,
   getInternship,
   listInternships,
   replaceInternship,
@@ -84,4 +86,52 @@ test('surfaces a duplicate ID constraint error', () => {
   const db = memoryDatabase();
   createInternship(db, record);
   assert.throws(() => createInternship(db, record), (error) => error.code === 'DUPLICATE_ID');
+});
+
+test('persists an application and enforces foreign key constraints', () => {
+  const db = memoryDatabase();
+  seedDatabase(db);
+
+  const applicationData = {
+    internshipId: 'INT-101',
+    fullName: 'Jane Doe',
+    email: 'jane@example.com',
+    phone: '+1 555-0199',
+    coverNote: 'I am excited to apply for this frontend engineering internship.',
+  };
+
+  const created = createApplication(db, applicationData);
+  assert.ok(created.id);
+  assert.equal(created.internshipId, 'INT-101');
+  assert.ok(created.submittedAt);
+
+  const stored = getApplication(db, created.id);
+  assert.equal(stored.id, created.id);
+  assert.equal(stored.internshipId, 'INT-101');
+  assert.equal(stored.fullName, 'Jane Doe');
+  assert.equal(stored.email, 'jane@example.com');
+  assert.equal(stored.phone, '+1 555-0199');
+  assert.equal(stored.coverNote, applicationData.coverNote);
+
+  // Foreign key constraint rejects application for nonexistent internship
+  assert.throws(() => {
+    createApplication(db, {
+      ...applicationData,
+      internshipId: 'NONEXISTENT-999',
+    });
+  });
+
+  // SQL-like string is treated purely as text
+  const sqlInjectionAttempt = {
+    internshipId: 'INT-101',
+    fullName: "Robert'); DROP TABLE applications;--",
+    email: 'bobby@example.com',
+    phone: null,
+    coverNote: "'; DELETE FROM internships WHERE '1'='1",
+  };
+  const sqlCreated = createApplication(db, sqlInjectionAttempt);
+  const sqlStored = getApplication(db, sqlCreated.id);
+  assert.equal(sqlStored.fullName, "Robert'); DROP TABLE applications;--");
+  assert.equal(sqlStored.coverNote, "'; DELETE FROM internships WHERE '1'='1");
+  assert.equal(listInternships(db, { page: 1, limit: 10 }).total, 5);
 });

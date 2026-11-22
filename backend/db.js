@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
+import { randomUUID } from 'node:crypto';
 import { seedInternships } from './seed-data.js';
 
 const schemaPath = fileURLToPath(new URL('./schema.sql', import.meta.url));
@@ -34,6 +35,7 @@ function toInternship(row) {
 export function createDatabase(filename = process.env.DATABASE_PATH || 'data/internships.db') {
   if (filename !== ':memory:') mkdirSync(path.dirname(path.resolve(filename)), { recursive: true });
   const db = new DatabaseSync(filename);
+  db.exec('PRAGMA foreign_keys = ON;');
   db.exec(readFileSync(schemaPath, 'utf8'));
   return db;
 }
@@ -84,6 +86,42 @@ export function updateInternship(db, id, changes) {
 
 export function deleteInternship(db, id) {
   return db.prepare('DELETE FROM internships WHERE id = ?').run(id).changes > 0;
+}
+
+export function createApplication(db, record) {
+  const id = record.id || randomUUID();
+  const createdAt = record.createdAt || new Date().toISOString();
+  db.prepare(`INSERT INTO applications
+    (id, internship_id, full_name, email, phone, cover_note, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    id,
+    record.internshipId,
+    record.fullName,
+    record.email,
+    record.phone ?? null,
+    record.coverNote,
+    createdAt
+  );
+  return {
+    id,
+    internshipId: record.internshipId,
+    submittedAt: createdAt,
+  };
+}
+
+export function getApplication(db, id) {
+  const row = db.prepare('SELECT * FROM applications WHERE id = ?').get(id);
+  if (!row) return null;
+  return {
+    id: row.id,
+    internshipId: row.internship_id,
+    fullName: row.full_name,
+    email: row.email,
+    phone: row.phone,
+    coverNote: row.cover_note,
+    createdAt: row.created_at,
+  };
 }
 
 export function seedDatabase(db, { overwrite = false } = {}) {

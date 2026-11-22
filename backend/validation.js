@@ -87,3 +87,100 @@ export function parsePagination(query) {
   }
   return { value: { page, limit } };
 }
+
+const applicationAllowedFields = new Set(['internshipId', 'fullName', 'email', 'phone', 'coverNote']);
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_REGEX = /^\+?[0-9\s().-]{7,25}$/;
+
+export function validateApplication(input) {
+  const errors = [];
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return { errors: [{ field: 'body', message: 'must be a JSON object' }] };
+  }
+
+  const keys = Object.keys(input);
+  for (const key of keys) {
+    if (!applicationAllowedFields.has(key)) {
+      errors.push({ field: key, message: 'is not allowed' });
+    }
+  }
+
+  const required = ['internshipId', 'fullName', 'email', 'coverNote'];
+  for (const field of required) {
+    if (!(field in input)) {
+      errors.push({ field, message: 'is required' });
+    }
+  }
+
+  const value = {};
+
+  if ('internshipId' in input) {
+    if (typeof input.internshipId !== 'string' || !input.internshipId.trim()) {
+      errors.push({ field: 'internshipId', message: 'must be a non-empty string' });
+    } else {
+      const trimmed = input.internshipId.trim();
+      if (trimmed.length > 100) {
+        errors.push({ field: 'internshipId', message: 'must be at most 100 characters' });
+      }
+      value.internshipId = trimmed;
+    }
+  }
+
+  if ('fullName' in input) {
+    if (typeof input.fullName !== 'string') {
+      errors.push({ field: 'fullName', message: 'must be a string' });
+    } else {
+      const trimmed = input.fullName.trim();
+      if (trimmed.length < 2 || trimmed.length > 100) {
+        errors.push({ field: 'fullName', message: 'must be between 2 and 100 characters' });
+      }
+      value.fullName = trimmed;
+    }
+  }
+
+  if ('email' in input) {
+    if (typeof input.email !== 'string') {
+      errors.push({ field: 'email', message: 'must be a string' });
+    } else {
+      const trimmed = input.email.trim();
+      const normalized = trimmed.toLowerCase();
+      if (normalized.length > 254 || !EMAIL_REGEX.test(normalized)) {
+        errors.push({ field: 'email', message: 'must be a valid email address of at most 254 characters' });
+      }
+      value.email = normalized;
+    }
+  }
+
+  if ('phone' in input && input.phone !== null && input.phone !== undefined) {
+    if (typeof input.phone !== 'string') {
+      errors.push({ field: 'phone', message: 'must be a string' });
+    } else {
+      const trimmed = input.phone.trim();
+      if (trimmed === '') {
+        value.phone = null;
+      } else {
+        const digits = trimmed.replace(/\D/g, '');
+        if (trimmed.length < 7 || trimmed.length > 25 || !PHONE_REGEX.test(trimmed) || digits.length < 7) {
+          errors.push({ field: 'phone', message: 'must be a valid phone number between 7 and 25 characters' });
+        }
+        value.phone = trimmed;
+      }
+    }
+  } else {
+    value.phone = null;
+  }
+
+  if ('coverNote' in input) {
+    if (typeof input.coverNote !== 'string') {
+      errors.push({ field: 'coverNote', message: 'must be a string' });
+    } else {
+      const trimmed = input.coverNote.trim();
+      if (trimmed.length < 20 || trimmed.length > 2000) {
+        errors.push({ field: 'coverNote', message: 'must be between 20 and 2000 characters' });
+      }
+      value.coverNote = trimmed;
+    }
+  }
+
+  return errors.length ? { errors } : { value };
+}
