@@ -92,7 +92,8 @@ All responses use JSON except successful deletion (`204 No Content`). List respo
 
 | Method | Endpoint | Purpose | Success |
 | --- | --- | --- | --- |
-| `GET` | `/health` | Service health | `200` |
+| `GET` | `/health` | Lightweight service liveness check | `200` |
+| `GET` | `/health/ready` | Readiness check (verifies database accessibility) | `200` / `503` |
 | `GET` | `/api/live-internships` | Cached live openings from official employer feeds | `200` |
 | `GET` | `/api/internships?page=1&limit=10` | Paginated list | `200` |
 | `GET` | `/api/internships/:id` | Record detail | `200` |
@@ -100,6 +101,7 @@ All responses use JSON except successful deletion (`204 No Content`). List respo
 | `PUT` | `/api/internships/:id` | Replace a record | `200` |
 | `PATCH` | `/api/internships/:id` | Update selected fields | `200` |
 | `DELETE` | `/api/internships/:id` | Delete a record | `204` |
+| `POST` | `/api/applications` | Submit application (rate-limited, validated) | `201` |
 
 `page` must be a positive integer. `limit` must be an integer between 1 and 100. Invalid input returns `422`, missing records return `404`, and duplicate IDs return `409`.
 
@@ -311,3 +313,53 @@ Response:
 - **In-memory rate limiter:** The current limiter uses an in-memory `Map` with automatic cleanup, suitable for single-node instances. Production deployments distributed across multiple load-balanced nodes or serverless containers must back the limiter with a shared distributed store (such as Redis or Memcached) to enforce global rate limits across instances.
 - **Proxy trust:** Express proxy header trust (`X-Forwarded-For`) is disabled by default and should only be enabled via explicit configuration (`TRUST_PROXY`) when running behind a trusted reverse proxy.
 - **Portfolio data note:** All supplied internship listings and applicant samples are fictional portfolio data supplied by EdVyro.
+
+## Task 4: Production-Ready Capstone
+
+Task 4 completes the production readiness audit and hardening of the Internship Board application, establishing production-grade observability, health monitoring, responsive and accessibility assurance, defense-in-depth security, and reproducible verification evidence.
+
+### 1. Production Observability and Structured Logging
+
+- **Structured JSON Logging:** Requests are emitted as single-line JSON records containing `timestamp`, `requestId`, `method`, `route`, `status`, and `durationMs`.
+- **Correlation ID Tracking:** Every request receives an `X-Request-Id` (propagating upstream client headers or generating a cryptographic UUID), returned in the response headers for end-to-end tracing.
+- **Strict Privacy & Redaction:**
+  - Request bodies are **never** logged.
+  - Applicant personal information (`fullName`, `email`, `phone`, `coverNote`) is strictly excluded from logs.
+  - URL query strings are stripped from the logged `route` path to avoid leaking sensitive query tokens.
+  - Stack traces and internal filesystem paths are suppressed from operational logs.
+- **Controlled Error Logging:** Server errors record useful operational context (level, method, clean route, HTTP status, and application error code) without leaking database internals.
+
+### 2. Strengthened Health Checks
+
+- **Liveness (`GET /health` & `GET /health/live`):** Lightweight check confirming the Node/Express process is running and responding to HTTP traffic (`200 OK`).
+- **Readiness (`GET /health/ready` & `GET /ready`):** Verifies database availability by executing a fast `SELECT 1 AS ready` check against the SQLite instance.
+  - Returns `200 OK` with `{ "status": "ready", "service": "internship-board-api", "checks": { "database": "ok" } }` when healthy.
+  - Returns `503 Service Unavailable` with `{ "status": "unavailable", "service": "internship-board-api", "checks": { "database": "error" } }` if the database is disconnected or degraded, without exposing internal errors.
+
+### 3. Quality & Assurance Audit Summary
+
+- **Unit & Integration Suite:** 74 tests passing (`npm test`), covering pagination, CRUD, validation, schema idempotency, error formats, rate limiting, and health checks.
+- **Browser QA Suite:** 15 automated checks passing with 0 console errors (`npm run test:browser`), validating viewports from 360px to 1920px, keyboard drawer navigation, filters, empty/error recovery, and details/application submission flows.
+- **Accessibility:** Semantic HTML5 landmarks, skip links, high-contrast focus rings, touch targets >= 44px, and ARIA live regions for status announcements.
+- **Single Public Proof Link:** <https://github.com/AshwinKirbaa/InternshipBoard>
+- **Full QA Report:** Detailed audit logs, check results, commands, dates, and limitations are documented in [reports/capstone-qa-report.md](reports/capstone-qa-report.md).
+
+### 4. Reproduction and Verification Commands
+
+Run all unit, API, schema, validation, and health tests:
+
+```powershell
+npm test
+```
+
+Run browser QA and regenerate all responsive screenshots:
+
+```powershell
+npm run test:browser
+```
+
+Run the complete test suite end-to-end:
+
+```powershell
+npm run test:all
+```

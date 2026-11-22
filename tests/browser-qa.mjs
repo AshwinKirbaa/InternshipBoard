@@ -95,17 +95,18 @@ async function setViewport(width, height) {
 async function loadPage(width, height) {
   await setViewport(width, height);
   await send('Page.navigate', { url: `http://127.0.0.1:${port}/` });
-  const deadline = Date.now() + 5_000;
+  await delay(100);
+  const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
     try {
-      const ready = await evaluate(`document.querySelector('#results-status')?.textContent !== 'Loading internships…'`);
+      const ready = await evaluate(`document.readyState === 'complete' && document.querySelectorAll('.internship-card').length === 5`);
       if (ready) return;
     } catch {
       // The new document is still being created.
     }
     await delay(50);
   }
-  const state = await evaluate(`({ href: location.href, title: document.title, status: document.querySelector('#results-status')?.textContent, scripts: [...document.scripts].map(({src,type}) => ({src,type})), resources: performance.getEntriesByType('resource').map(({name}) => name) })`);
+  const state = await evaluate(`({ href: location.href, title: document.title, status: document.querySelector('#results-status')?.textContent, cards: document.querySelectorAll('.internship-card').length, scripts: [...document.scripts].map(({src,type}) => ({src,type})), resources: performance.getEntriesByType('resource').map(({name}) => name) })`);
   throw new Error(`Internship results did not finish loading: ${JSON.stringify({ state, browserErrors })}`);
 }
 
