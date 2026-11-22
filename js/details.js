@@ -281,11 +281,16 @@ export async function handleApplicationSubmit(event) {
 }
 
 if (typeof document !== 'undefined') {
-  document.addEventListener('DOMContentLoaded', () => {
+  const init = () => {
     renderDetails();
     const appForm = document.querySelector('#application-form');
     if (appForm) {
       appForm.addEventListener('submit', handleApplicationSubmit);
     }
-  });
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init, { once: true });
+  } else {
+    init();
+  }
 }

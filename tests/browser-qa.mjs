@@ -1,6 +1,5 @@
-import { createServer } from 'node:http';
-import { readFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
@@ -22,11 +21,11 @@ const outputDirectory = join(root, 'reports', 'screenshots');
 let port;
 const debugPort = randomInt(10000, 50000);
 
-const db = createDatabase(':memory:');
-seedDatabase(db);
-const app = createApp({ db, staticRoot: root });
-const server = app.listen(0, '127.0.0.1');
-await new Promise((resolve) => server.once('listening', resolve));
+const database = createDatabase(':memory:');
+seedDatabase(database);
+const server = createApp({ db: database, staticRoot: root }).listen(0, '127.0.0.1');
+
+if (!server.listening) await new Promise((resolve) => server.once('listening', resolve));
 port = server.address().port;
 await mkdir(outputDirectory, { recursive: true });
 const browserProfile = await mkdtemp(join(tmpdir(), 'internship-board-qa-'));
@@ -96,7 +95,18 @@ async function setViewport(width, height) {
 async function loadPage(width, height) {
   await setViewport(width, height);
   await send('Page.navigate', { url: `http://127.0.0.1:${port}/` });
-  await delay(650);
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    try {
+      const ready = await evaluate(`document.querySelector('#results-status')?.textContent !== 'Loading internships…'`);
+      if (ready) return;
+    } catch {
+      // The new document is still being created.
+    }
+    await delay(50);
+  }
+  const state = await evaluate(`({ href: location.href, title: document.title, status: document.querySelector('#results-status')?.textContent, scripts: [...document.scripts].map(({src,type}) => ({src,type})), resources: performance.getEntriesByType('resource').map(({name}) => name) })`);
+  throw new Error(`Internship results did not finish loading: ${JSON.stringify({ state, browserErrors })}`);
 }
 
 async function screenshot(name) {
@@ -106,6 +116,7 @@ async function screenshot(name) {
 
 async function inspect(width, height) {
   await loadPage(width, height);
+  if (browserErrors.length) console.log('DEBUG browserErrors:', browserErrors);
   return evaluate(`(() => ({
     width: innerWidth,
     height: innerHeight,
@@ -224,7 +235,7 @@ console.log(`Screenshots: ${outputDirectory}`);
 } finally {
   if (socket?.readyState === WebSocket.OPEN) socket.close();
   server.close();
-  db.close();
+  database.close();
   if (chrome.exitCode === null) {
     await new Promise((resolve) => {
       chrome.once('exit', resolve);

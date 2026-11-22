@@ -16,10 +16,10 @@ const validRecord = {
   applicationsOpen: true,
 };
 
-async function withApi(run, { seed = true } = {}) {
+async function withApi(run, { seed = true, liveInternships } = {}) {
   const db = createDatabase(':memory:');
   if (seed) seedDatabase(db);
-  const server = createApp({ db }).listen(0, '127.0.0.1');
+  const server = createApp({ db, liveInternships }).listen(0, '127.0.0.1');
   await new Promise((resolve) => server.once('listening', resolve));
   const baseUrl = `http://127.0.0.1:${server.address().port}`;
   try {
@@ -29,6 +29,33 @@ async function withApi(run, { seed = true } = {}) {
     db.close();
   }
 }
+
+test('serves source-attributed live internships without changing persistent records', async () => {
+  const liveRecord = { ...validRecord, id: 'lever-example-1', source: 'Lever', sourceUrl: 'https://jobs.lever.co/example/1', isLive: true };
+  await withApi(async (baseUrl) => {
+    const live = await jsonRequest(`${baseUrl}/api/live-internships`);
+    assert.equal(live.response.status, 200);
+    assert.deepEqual(live.body.data, [liveRecord]);
+    assert.deepEqual(live.body.meta, { live: true, source: 'Official employer job boards', count: 1 });
+
+    const persistent = await jsonRequest(`${baseUrl}/api/internships?page=1&limit=100`);
+    assert.equal(persistent.response.status, 200);
+    assert.equal(persistent.body.pagination.total, 5);
+    assert.equal(persistent.body.data.some(({ id }) => id === liveRecord.id), false);
+  }, { liveInternships: async () => ({ internships: [liveRecord], meta: { live: true, source: 'Official employer job boards', count: 1 } }) });
+});
+
+test('returns a controlled live-data error while the persistent API stays available', async () => {
+  await withApi(async (baseUrl) => {
+    const live = await jsonRequest(`${baseUrl}/api/live-internships`);
+    assert.equal(live.response.status, 503);
+    assert.equal(live.body.error.code, 'LIVE_DATA_UNAVAILABLE');
+
+    const persistent = await jsonRequest(`${baseUrl}/api/internships?page=1&limit=1`);
+    assert.equal(persistent.response.status, 200);
+    assert.equal(persistent.body.pagination.total, 5);
+  }, { liveInternships: async () => { throw new Error('upstreams unavailable'); } });
+});
 
 async function jsonRequest(url, options = {}) {
   const response = await fetch(url, options);
