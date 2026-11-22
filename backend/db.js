@@ -124,6 +124,16 @@ export function getApplication(db, id) {
   };
 }
 
+export function checkDatabaseHealth(db) {
+  if (!db) return false;
+  try {
+    const row = db.prepare('SELECT 1 AS ready').get();
+    return row?.ready === 1;
+  } catch {
+    return false;
+  }
+}
+
 export function seedDatabase(db, { overwrite = false } = {}) {
   db.exec('BEGIN');
   try {

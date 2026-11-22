@@ -1,7 +1,9 @@
 import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { randomUUID } from 'node:crypto';
 import {
+  checkDatabaseHealth,
   createApplication,
   createInternship,
   deleteInternship,
@@ -23,13 +25,45 @@ function allowedOrigins() {
 
 const defaultStaticRoot = fileURLToPath(new URL('../', import.meta.url));
 
-export function createApp({ db, staticRoot = defaultStaticRoot, liveInternships, rateLimiterOptions, trustProxy = false } = {}) {
+export function createApp({ db, staticRoot = defaultStaticRoot, liveInternships, rateLimiterOptions, trustProxy = false, logger, errorLogger } = {}) {
   const app = express();
   app.disable('x-powered-by');
 
   if (trustProxy || process.env.TRUST_PROXY) {
     app.set('trust proxy', trustProxy || process.env.TRUST_PROXY);
   }
+
+  // Correlation ID and structured request logging
+  app.use((request, response, next) => {
+    const incomingId = request.headers['x-request-id'];
+    const requestId = typeof incomingId === 'string' && incomingId.trim() ? incomingId.trim() : randomUUID();
+    request.requestId = requestId;
+    response.set('X-Request-Id', requestId);
+
+    const start = process.hrtime.bigint();
+
+    response.on('finish', () => {
+      const durationMs = Number(process.hrtime.bigint() - start) / 1e6;
+      const cleanRoute = (request.originalUrl ? request.originalUrl.split('?')[0] : request.path) || request.path;
+      const logEntry = {
+        timestamp: new Date().toISOString(),
+        requestId,
+        method: request.method,
+        route: cleanRoute,
+        status: response.statusCode,
+        durationMs: Math.round(durationMs * 100) / 100,
+      };
+
+      const isTestEnv = process.env.NODE_ENV === 'test' || process.argv.some((a) => typeof a === 'string' && a.includes('test'));
+      if (typeof logger === 'function') {
+        logger(logEntry);
+      } else if (logger !== false && !isTestEnv) {
+        console.log(JSON.stringify(logEntry));
+      }
+    });
+
+    next();
+  });
 
   app.use((_request, response, next) => {
     response.set({
@@ -48,19 +82,40 @@ export function createApp({ db, staticRoot = defaultStaticRoot, liveInternships,
     if (!request.path.startsWith('/api/')) return next();
     const origin = request.headers.origin;
     if (!origin) return next();
-    if (!allowedOrigins().has(origin)) return response.status(403).json(errorBody('ORIGIN_NOT_ALLOWED', 'Origin not allowed'));
+    const isSameOrigin = origin === `${request.protocol}://${request.get('host')}`;
+    if (!isSameOrigin && !allowedOrigins().has(origin)) return response.status(403).json(errorBody('ORIGIN_NOT_ALLOWED', 'Origin not allowed'));
     response.set('access-control-allow-origin', origin);
     response.set('vary', 'Origin');
     if (request.method === 'OPTIONS') {
       response.set('access-control-allow-methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-      response.set('access-control-allow-headers', 'Content-Type');
+      response.set('access-control-allow-headers', 'Content-Type, X-Request-Id');
       return response.sendStatus(204);
     }
     return next();
   });
   app.use(express.json({ limit: '100kb' }));
 
-  app.get('/health', (_request, response) => response.json({ status: 'ok', service: 'internship-board-api' }));
+  app.get(['/health', '/health/live'], (_request, response) => response.json({ status: 'ok', service: 'internship-board-api' }));
+
+  app.get(['/health/ready', '/ready'], (_request, response) => {
+    const isReady = checkDatabaseHealth(db);
+    if (isReady) {
+      return response.status(200).json({
+        status: 'ready',
+        service: 'internship-board-api',
+        checks: {
+          database: 'ok',
+        },
+      });
+    }
+    return response.status(503).json({
+      status: 'unavailable',
+      service: 'internship-board-api',
+      checks: {
+        database: 'error',
+      },
+    });
+  });
 
   app.get('/api/live-internships', async (_request, response) => {
     if (typeof liveInternships !== 'function') {
@@ -153,7 +208,28 @@ export function createApp({ db, staticRoot = defaultStaticRoot, liveInternships,
   app.get('/', express.static(staticRoot, { index: 'index.html' }));
   app.get(['/index.html', '/internship.html'], express.static(staticRoot));
   app.use((request, response) => response.status(404).json(errorBody('NOT_FOUND', 'Route not found')));
-  app.use((error, _request, response, _next) => {
+  app.use((error, request, response, _next) => {
+    const status = Number.isInteger(error.status) && error.status >= 400 ? error.status : 500;
+    const code = error.code || (status === 400 ? 'BAD_REQUEST' : (status === 413 ? 'PAYLOAD_TOO_LARGE' : (status === 415 ? 'UNSUPPORTED_MEDIA_TYPE' : 'INTERNAL_ERROR')));
+    const cleanRoute = (request.originalUrl ? request.originalUrl.split('?')[0] : request.path) || request.path;
+    const errorLog = {
+      timestamp: new Date().toISOString(),
+      requestId: request.requestId || 'unknown',
+      level: 'error',
+      method: request.method,
+      route: cleanRoute,
+      status,
+      code,
+      message: status < 500 ? (error.message || 'The request could not be processed') : 'Controlled server error',
+    };
+
+    const isTestEnv = process.env.NODE_ENV === 'test' || process.argv.some((a) => typeof a === 'string' && a.includes('test'));
+    if (typeof errorLogger === 'function') {
+      errorLogger(errorLog);
+    } else if (errorLogger !== false && !isTestEnv) {
+      console.error(JSON.stringify(errorLog));
+    }
+
     if (error instanceof SyntaxError && error.status === 400 && 'body' in error) {
       return response.status(400).json(errorBody('INVALID_JSON', 'Request body contains malformed JSON'));
     }
@@ -162,7 +238,6 @@ export function createApp({ db, staticRoot = defaultStaticRoot, liveInternships,
     if (Number.isInteger(error.status) && error.status >= 400 && error.status < 500) {
       return response.status(error.status).json(errorBody('BAD_REQUEST', error.message || 'The request could not be processed'));
     }
-    console.error(error);
     return response.status(500).json(errorBody('INTERNAL_ERROR', 'An unexpected error occurred'));
   });
 

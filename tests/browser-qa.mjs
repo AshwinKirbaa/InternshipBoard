@@ -174,6 +174,52 @@ if (!detailState.path.endsWith('/internship.html') || detailState.id !== 'INT-10
 }
 checks.push('card selection: opened INT-101 details page');
 await screenshot('internship-details.png');
+
+const validationResult = await evaluate(`(() => {
+  const submitBtn = document.querySelector('#app-submit-button');
+  submitBtn.click();
+  const status = document.querySelector('#app-form-status');
+  const nameError = document.querySelector('#app-full-name-error');
+  return {
+    hasStatusError: status?.classList.contains('is-error'),
+    hasNameError: !nameError?.hidden && (nameError?.textContent?.length || 0) > 0,
+    statusText: status?.textContent,
+  };
+})()`);
+if (!validationResult.hasStatusError || !validationResult.hasNameError) {
+  throw new Error(`Application client validation failed: ${JSON.stringify(validationResult)}`);
+}
+checks.push('application form: client validation displayed field-specific errors');
+
+const submitResult = await evaluate(`(async () => {
+  document.querySelector('#app-full-name').value = 'Jordan Lee';
+  document.querySelector('#app-email').value = 'jordan.lee@example.com';
+  document.querySelector('#app-phone').value = '+1-555-0142';
+  document.querySelector('#app-cover-note').value = 'I am enthusiastic about applying for this frontend engineering internship opportunity.';
+  const form = document.querySelector('#application-form');
+  form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+  const deadline = Date.now() + 3000;
+  while (Date.now() < deadline) {
+    const status = document.querySelector('#app-form-status');
+    if (status?.classList.contains('is-success')) {
+      return { success: true, message: status.textContent };
+    }
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  return { success: false, message: document.querySelector('#app-form-status')?.textContent };
+})()`);
+if (!submitResult.success) {
+  throw new Error(`Application submission in browser failed: ${JSON.stringify(submitResult)}`);
+}
+checks.push('application form: successfully submitted and confirmed with reference ID');
+await screenshot('application-submitted.png');
+
+const healthRes = await fetch(`http://127.0.0.1:${port}/health`);
+const healthReadyRes = await fetch(`http://127.0.0.1:${port}/health/ready`);
+if (!healthRes.ok || !healthReadyRes.ok) {
+  throw new Error(`Health checks failed: liveness=${healthRes.status}, readiness=${healthReadyRes.status}`);
+}
+checks.push('health endpoints: /health and /health/ready verified operational');
 await send('Page.navigate', { url: `http://127.0.0.1:${port}/` });
 await delay(650);
 
